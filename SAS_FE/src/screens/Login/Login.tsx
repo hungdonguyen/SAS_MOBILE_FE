@@ -122,6 +122,28 @@ const Login = () => {
                         <Text style={styles.buttonText}>Login</Text>
                     )}
                 </TouchableOpacity>
+
+                {/* Quick Role Navigation Shortcuts for UI Prototype */}
+                <View style={styles.demoRoleSection}>
+                    <Text style={styles.demoRoleTitle}>Quick Preview Modes:</Text>
+                    <View style={styles.demoRoleRow}>
+                        <TouchableOpacity
+                            style={styles.lecturerModeBtn}
+                            onPress={() => navigation.navigate('Home')}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.lecturerModeText}>Lecturer Mode</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.adminModeBtn}
+                            onPress={() => navigation.navigate('AdminHome')}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.adminModeText}>Admin Mode</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -217,7 +239,48 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: 'bold',
-    }
+    },
+    demoRoleSection: {
+        marginTop: 24,
+        alignItems: 'center',
+    },
+    demoRoleTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#94A3B8',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+    },
+    demoRoleRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    lecturerModeBtn: {
+        backgroundColor: '#F0FDFA',
+        borderWidth: 1,
+        borderColor: '#0D9488',
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: 20,
+    },
+    lecturerModeText: {
+        color: '#0D9488',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    adminModeBtn: {
+        backgroundColor: '#EEF2FF',
+        borderWidth: 1,
+        borderColor: '#6366F1',
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        borderRadius: 20,
+    },
+    adminModeText: {
+        color: '#6366F1',
+        fontSize: 12,
+        fontWeight: '700',
+    },
 });
 
 export default Login;
