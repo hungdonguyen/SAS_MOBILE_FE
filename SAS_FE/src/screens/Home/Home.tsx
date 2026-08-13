@@ -1,12 +1,8 @@
-import React from "react";
-import { View, Text } from "react-native";
+import React from 'react';
+import LecturerTabNavigator from '../../navigation/LecturerTabNavigator';
 
-const Home = () => {
-    return (
-        <View>
-            <Text>Home</Text>
-        </View>
-    );
+const Home: React.FC = () => {
+  return <LecturerTabNavigator />;
 };
 
 export default Home;
