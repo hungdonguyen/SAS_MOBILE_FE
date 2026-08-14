@@ -27,7 +27,7 @@ const LecturerTabNavigator: React.FC = () => {
   return (
     <Tab.Navigator
       initialRouteName="DashboardTab"
-      screenOptions={({ route }) => ({
+      screenOptions={({ route }: { route: any }) => ({
         headerShown: false,
         tabBarActiveTintColor: '#0D9488',
         tabBarInactiveTintColor: '#94A3B8',
@@ -39,7 +39,7 @@ const LecturerTabNavigator: React.FC = () => {
           },
         ],
         tabBarLabelStyle: styles.tabLabel,
-        tabBarIcon: ({ color, size, focused }) => {
+        tabBarIcon: ({ color, size, focused }: { color: string; size: number; focused: boolean }) => {
           let iconName = 'grid-outline';
 
           if (route.name === 'DashboardTab') {
