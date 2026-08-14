@@ -90,7 +90,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   // ── Called by FaceCamera when face auto-captured ──────────────────────────
-  const handleFaceCaptured = async (imageBase64: string) => {
+  const handleFaceCaptured = async (data: { base64: string; uri: string }) => {
     if (!session) { Alert.alert('Lỗi', 'Không tìm thấy thông tin buổi học.'); return; }
 
     if (gpsStatus !== 'ready' || !gpsCoords) {
@@ -111,7 +111,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
         checkInMethod: 'FACE_SCAN',
         gpsLat: gpsCoords.lat,
         gpsLng: gpsCoords.lng,
-        imageBase64,
+        imageBase64: data.base64,
       });
 
       const jobId = queued.jobId;

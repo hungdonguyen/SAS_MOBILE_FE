@@ -9,7 +9,7 @@
  *   - Color-coded oval border feedback (amber=scanning, blue=detected, green=good, red=lost)
  *   - Warning banners for face position errors (too close / too far / off-center)
  *
- * VisionCamera v4 + react-native-vision-camera-face-detector v1
+ * VisionCamera v4 + react-native-vision-camera-face-detector v1 + react-native-worklets-core
  */
 import React, {
   useRef,
@@ -35,6 +35,7 @@ import {
   useFrameProcessor,
 } from 'react-native-vision-camera';
 import { useFaceDetector } from 'react-native-vision-camera-face-detector';
+import { Worklets } from 'react-native-worklets-core';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -42,7 +43,6 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import AppIcon from './Icon/AppIcon';
 
@@ -50,14 +50,19 @@ import AppIcon from './Icon/AppIcon';
 
 export type FaceStatus = 'none' | 'too_close' | 'too_far' | 'off_center' | 'good';
 
+export interface FaceCaptureData {
+  base64: string;
+  uri: string;
+}
+
 export interface FaceCameraHandle {
   /** Manually trigger a capture — for fallback use only */
   triggerCapture: () => void;
 }
 
 interface FaceCameraProps {
-  /** Called with base64 JPEG when face is auto-captured */
-  onCapture: (base64: string) => void;
+  /** Called with { base64, uri } when face is auto-captured */
+  onCapture: (data: FaceCaptureData) => void;
   /** Block auto-capture while parent is uploading / processing */
   isProcessing?: boolean;
   /** Seconds to wait after face detected before auto-capture */
@@ -118,14 +123,18 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         -1,
         false,
       );
-    }, []);
+    }, [pulseScale]);
+
     const ovalAnimStyle = useAnimatedStyle(() => ({
       transform: [{ scale: pulseScale.value }],
     }));
 
     // ── Permissions ────────────────────────────────────────────────────────────
     useEffect(() => {
-      if (hasPermission) { setPermissionGranted(true); return; }
+      if (hasPermission) {
+        setPermissionGranted(true);
+        return;
+      }
       (async () => {
         if (Platform.OS === 'android') {
           const r = await PermissionsAndroid.request(
@@ -145,13 +154,10 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
       })();
     }, [hasPermission, requestPermission]);
 
-    // ── Expose manual trigger via ref ─────────────────────────────────────────
-    useImperativeHandle(ref, () => ({
-      triggerCapture: () => doCapture(),
-    }));
-
     // ── Cleanup on unmount ────────────────────────────────────────────────────
-    useEffect(() => () => { stopCountdown(); }, []);
+    useEffect(() => () => {
+      stopCountdown();
+    }, []);
 
     // ── Countdown control ─────────────────────────────────────────────────────
     const startCountdown = useCallback(() => {
@@ -186,26 +192,47 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
 
       try {
         if (!cameraRef.current) throw new Error('Camera not ready');
-        const photo = await cameraRef.current.takeSnapshot({ quality: 85 });
 
-        // Convert file path to base64 using fetch + FileReader
-        const path = Platform.OS === 'android' ? `file://${photo.path}` : photo.path;
-        const res = await fetch(path);
-        const blob = await res.blob();
-        const base64 = await blobToBase64(blob);
-        if (base64) {
-          onCapture(base64);
-        } else {
-          throw new Error('Failed to read image');
+        let photoPath = '';
+        try {
+          const photo = await cameraRef.current.takePhoto({
+            enableShutterSound: false,
+          });
+          photoPath = photo.path;
+        } catch {
+          const snapshot = await cameraRef.current.takeSnapshot({ quality: 85 });
+          photoPath = snapshot.path;
         }
+
+        const fileUri = Platform.OS === 'android' ? `file://${photoPath}` : photoPath;
+        let base64 = '';
+
+        try {
+          const res = await fetch(fileUri);
+          const blob = await res.blob();
+          const rawBase64 = await blobToBase64(blob);
+          base64 = rawBase64 || '';
+        } catch (readErr) {
+          console.log('[FaceCamera] read blob warning:', readErr);
+        }
+
+        onCapture({
+          base64,
+          uri: fileUri,
+        });
       } catch (err: any) {
         console.log('[FaceCamera] capture error:', err.message);
         capturedRef.current = false;
         setCaptured(false);
         setFaceStatus('none');
-        Alert.alert('Lỗi chụp ảnh', 'Không thể chụp ảnh. Thử lại.');
+        Alert.alert('Lỗi chụp ảnh', 'Không thể chụp ảnh. Vui lòng thử lại.');
       }
     }, [isProcessing, onCapture]);
+
+    // ── Expose manual trigger via ref ─────────────────────────────────────────
+    useImperativeHandle(ref, () => ({
+      triggerCapture: () => doCapture(),
+    }));
 
     // ── JS callbacks called from frame processor ──────────────────────────────
     const onFaceGood = useCallback(() => {
@@ -218,7 +245,11 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
       stopCountdown();
     }, [stopCountdown]);
 
-    // ── Frame processor (runs on camera thread via Reanimated worklet) ─────────
+    // Bridge functions created via Worklets.createRunOnJS
+    const notifyFaceGood = Worklets.createRunOnJS(onFaceGood);
+    const notifyFaceLost = Worklets.createRunOnJS(onFaceLost);
+
+    // ── Frame processor (runs on camera thread via worklet) ───────────────────
     const frameProcessor = useFrameProcessor(
       (frame) => {
         'worklet';
@@ -226,8 +257,8 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
 
         const faces = detectFaces(frame);
 
-        if (faces.length === 0) {
-          runOnJS(onFaceLost)('none');
+        if (!faces || faces.length === 0) {
+          notifyFaceLost('none');
           return;
         }
 
@@ -235,48 +266,80 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         const fw = frame.width;
         const fh = frame.height;
 
-        const faceW = face.bounds.width / fw;
-        const faceH = face.bounds.height / fh;
-        const cx = (face.bounds.x + face.bounds.width / 2) / fw;
-        const cy = (face.bounds.y + face.bounds.height / 2) / fh;
+        // Position check: Face should be in central region of frame
+        const faceCenterX = face.bounds.x + face.bounds.width / 2;
+        const faceCenterY = face.bounds.y + face.bounds.height / 2;
+        const frameCenterX = fw / 2;
+        const frameCenterY = fh / 2;
 
-        if (faceW > 0.78 || faceH > 0.82) {
-          runOnJS(onFaceLost)('too_close');
-          return;
-        }
-        if (faceW < 0.16 || faceH < 0.18) {
-          runOnJS(onFaceLost)('too_far');
-          return;
-        }
-        if (Math.abs(cx - 0.5) > 0.22 || Math.abs(cy - 0.5) > 0.22) {
-          runOnJS(onFaceLost)('off_center');
+        const horizontalTolerance = fw * 0.35;
+        const verticalTolerance = fh * 0.35;
+
+        const horizontalOk = Math.abs(faceCenterX - frameCenterX) <= horizontalTolerance;
+        const verticalOk = Math.abs(faceCenterY - frameCenterY) <= verticalTolerance;
+
+        if (!horizontalOk || !verticalOk) {
+          notifyFaceLost('off_center');
           return;
         }
 
-        runOnJS(onFaceGood)();
+        // Size check: Face size relative to smaller dimension
+        const faceSize = Math.max(face.bounds.width, face.bounds.height);
+        const minFaceSize = Math.min(fw, fh) * 0.18;
+        const maxFaceSize = Math.min(fw, fh) * 0.75;
+
+        if (faceSize < minFaceSize) {
+          notifyFaceLost('too_far');
+          return;
+        }
+        if (faceSize > maxFaceSize) {
+          notifyFaceLost('too_close');
+          return;
+        }
+
+        // Face Angle / Pose check: Looking reasonably straight (<= 25 degrees)
+        const maxAngle = 25;
+        if (
+          (face.pitchAngle !== undefined && Math.abs(face.pitchAngle) > maxAngle) ||
+          (face.rollAngle !== undefined && Math.abs(face.rollAngle) > maxAngle) ||
+          (face.yawAngle !== undefined && Math.abs(face.yawAngle) > maxAngle)
+        ) {
+          notifyFaceLost('off_center');
+          return;
+        }
+
+        notifyFaceGood();
       },
-      [detectFaces, isProcessing, onFaceGood, onFaceLost],
+      [detectFaces, isProcessing, notifyFaceGood, notifyFaceLost],
     );
 
     // ── Derived display values ────────────────────────────────────────────────
     const getBorderColor = () => {
       if (captured || isProcessing) return BORDER.good;
       switch (faceStatus) {
-        case 'good': return countdown !== null && countdown <= 1 ? BORDER.good : BORDER.detected;
+        case 'good':
+          return countdown !== null && countdown <= 1 ? BORDER.good : BORDER.detected;
         case 'too_close':
         case 'too_far':
-        case 'off_center': return BORDER.lost;
-        default: return BORDER.scanning;
+        case 'off_center':
+          return BORDER.lost;
+        default:
+          return BORDER.scanning;
       }
     };
 
     const getWarning = (): string | null => {
       switch (faceStatus) {
-        case 'none': return 'Không tìm thấy khuôn mặt';
-        case 'too_close': return 'Quá gần — lùi ra xa hơn';
-        case 'too_far': return 'Quá xa — lại gần hơn';
-        case 'off_center': return 'Căn khuôn mặt vào giữa oval';
-        default: return null;
+        case 'none':
+          return 'Không tìm thấy khuôn mặt';
+        case 'too_close':
+          return 'Quá gần — lùi ra xa hơn';
+        case 'too_far':
+          return 'Quá xa — lại gần hơn';
+        case 'off_center':
+          return 'Căn khuôn mặt vào giữa oval và nhìn thẳng';
+        default:
+          return null;
       }
     };
 
@@ -284,11 +347,16 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
       if (isProcessing) return 'Đang xử lý AI...';
       if (captured) return '✓ Đã chụp ảnh!';
       switch (faceStatus) {
-        case 'good': return countdown !== null ? `Giữ nguyên... ${countdown}s` : 'Khuôn mặt OK!';
-        case 'too_close': return 'Lùi ra xa hơn';
-        case 'too_far': return 'Lại gần hơn';
-        case 'off_center': return 'Căn giữa khuôn mặt';
-        default: return 'Đặt khuôn mặt vào khung oval';
+        case 'good':
+          return countdown !== null ? `Giữ nguyên... ${countdown}s` : 'Khuôn mặt OK!';
+        case 'too_close':
+          return 'Lùi ra xa hơn';
+        case 'too_far':
+          return 'Lại gần hơn';
+        case 'off_center':
+          return 'Căn giữa khuôn mặt & nhìn thẳng';
+        default:
+          return 'Đặt khuôn mặt vào khung oval';
       }
     };
 
@@ -360,10 +428,11 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
           {/* Processing overlay */}
           {(isProcessing || captured) && (
             <View style={styles.overlay}>
-              {isProcessing
-                ? <ActivityIndicator size="large" color="#FFFFFF" />
-                : <AppIcon name="checkmark-circle-outline" size={52} color="#10B981" />
-              }
+              {isProcessing ? (
+                <ActivityIndicator size="large" color="#FFFFFF" />
+              ) : (
+                <AppIcon name="checkmark-circle-outline" size={52} color="#10B981" />
+              )}
               <Text style={styles.overlayText}>
                 {isProcessing ? 'Đang phân tích AI...' : 'Đã chụp ✓'}
               </Text>
@@ -404,7 +473,9 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
             'Nhìn thẳng, không nghiêng mặt hay đội mũ',
             'Ứng dụng tự động chụp — không cần bấm nút',
           ].map((tip, i) => (
-            <Text key={i} style={styles.tipText}>• {tip}</Text>
+            <Text key={i} style={styles.tipText}>
+              • {tip}
+            </Text>
           ))}
         </View>
       </View>
@@ -433,8 +504,11 @@ function blobToBase64(blob: Blob): Promise<string | null> {
 const styles = StyleSheet.create({
   wrapper: { alignItems: 'center', width: '100%' },
   statusText: {
-    fontSize: 14, fontWeight: '700', textAlign: 'center',
-    marginBottom: 12, minHeight: 20,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
+    minHeight: 20,
   },
   ovalFrame: {
     width: OVAL_WIDTH,
@@ -449,49 +523,87 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   warningBanner: {
-    position: 'absolute', top: 14, left: 14, right: 14, zIndex: 10,
-    backgroundColor: 'rgba(239,68,68,0.92)', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center',
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    right: 14,
+    zIndex: 10,
+    backgroundColor: 'rgba(239,68,68,0.92)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: 'center',
   },
   warningText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center',
-    justifyContent: 'center', zIndex: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
   },
   overlayText: {
-    color: '#FFFFFF', fontSize: 14, fontWeight: '700', marginTop: 12,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 12,
   },
   countdownBubbleInOval: {
-    position: 'absolute', bottom: 20, alignSelf: 'center',
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(59,130,246,0.88)', alignItems: 'center',
-    justifyContent: 'center', zIndex: 15,
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(59,130,246,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 15,
   },
   countdownBubbleText: { color: '#FFFFFF', fontSize: 26, fontWeight: '900' },
   countdownRow: { height: 60, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
   countdownBadge: {
-    width: 52, height: 52, borderRadius: 26,
-    alignItems: 'center', justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
   countdownBadgeNum: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' },
   aiBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#EDE9FE',
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 14,
   },
   aiBadgeText: { fontSize: 11, fontWeight: '600', color: '#7C3AED' },
   tipsBox: {
-    width: '100%', backgroundColor: '#FFFBEB', borderWidth: 1,
-    borderColor: '#FDE68A', borderRadius: 14, padding: 14,
+    width: '100%',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 14,
+    padding: 14,
   },
   tipsHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   tipsTitle: { fontSize: 13, fontWeight: '700', color: '#B45309' },
   tipText: { fontSize: 12, color: '#92400E', lineHeight: 20 },
   centeredState: {
-    height: OVAL_HEIGHT + 80, alignItems: 'center',
-    justifyContent: 'center', padding: 24, gap: 10,
+    height: OVAL_HEIGHT + 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 10,
   },
   errorTitle: { fontSize: 15, fontWeight: '800', color: '#0F172A', textAlign: 'center' },
   errorSub: { fontSize: 12, color: '#64748B', textAlign: 'center', lineHeight: 18 },

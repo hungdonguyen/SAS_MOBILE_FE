@@ -25,14 +25,14 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
   const isUploading = step === 'uploading';
 
   // ── Called by FaceCamera when auto-capture fires ──────────────────────────
-  const handleFaceCaptured = async (imageBase64: string) => {
+  const handleFaceCaptured = async (data: { base64: string; uri: string }) => {
     setStep('uploading');
 
     try {
-      // Build FormData exactly as backend expects: field name "file"
+      // Build FormData with real file URI exactly as backend expects: field name "file"
       const formData = new FormData();
       formData.append('file', {
-        uri: `data:image/jpeg;base64,${imageBase64}`,
+        uri: data.uri,
         name: 'face.jpg',
         type: 'image/jpeg',
       } as any);
