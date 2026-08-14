@@ -34,8 +34,25 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Camera (face capture & biometric registration) -->
+	<key>NSCameraUsageDescription</key>
+	<string>SAS Mobile cần quyền truy cập Camera để chụp ảnh khuôn mặt phục vụ điểm danh sinh trắc học và đăng ký nhận diện khuôn mặt.</string>
+
+	<!-- Photo Library (image picker) -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SAS Mobile cần quyền truy cập Thư viện Ảnh để chọn ảnh chân dung phục vụ đăng ký nhận diện khuôn mặt.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SAS Mobile cần quyền lưu ảnh vào Thư viện để lưu lại ảnh chụp khuôn mặt trong quá trình điểm danh.</string>
+
+	<!-- Location (GPS Geofencing for check-in) -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string/>
+	<string>SAS Mobile cần quyền truy cập Vị trí để xác minh bạn đang ở trong khuôn viên trường trong quá trình điểm danh (GPS Geofencing).</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>SAS Mobile sử dụng vị trí GPS để xác thực khu vực địa lý khi điểm danh lớp học.</string>
+
+	<!-- Microphone (required by iOS camera API) -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SAS Mobile cần quyền Microphone vì hệ thống camera iOS yêu cầu quyền này khi mở camera.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
