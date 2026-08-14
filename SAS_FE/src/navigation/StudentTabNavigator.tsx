@@ -2,34 +2,30 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
-import AdminUsersScreen from '../screens/Admin/AdminUsersScreen';
-import AdminClassesScreen from '../screens/Admin/AdminClassesScreen';
-import AdminRoomsScreen from '../screens/Admin/AdminRoomsScreen';
-import AdminProfileScreen from '../screens/Admin/AdminProfileScreen';
+import StudentDashboardScreen from '../screens/Student/StudentDashboardScreen';
+import StudentHistoryScreen from '../screens/Student/StudentHistoryScreen';
+import StudentProfileScreen from '../screens/Student/StudentProfileScreen';
 import AppIcon from '../components/Icon/AppIcon';
 
-export type AdminTabParamList = {
-  AdminDashboardTab: undefined;
-  AdminUsersTab: undefined;
-  AdminClassesTab: undefined;
-  AdminRoomsTab: undefined;
-  AdminSettingsTab: undefined;
+export type StudentTabParamList = {
+  StudentDashboardTab: undefined;
+  StudentHistoryTab: undefined;
+  StudentProfileTab: undefined;
 };
 
-const Tab = createBottomTabNavigator<AdminTabParamList>();
+const Tab = createBottomTabNavigator<StudentTabParamList>();
 
-const AdminTabNavigator: React.FC = () => {
+const StudentTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
   const bottomInset = insets.bottom > 0 ? insets.bottom : 8;
   const tabBarHeight = 56 + bottomInset;
 
   return (
     <Tab.Navigator
-      initialRouteName="AdminDashboardTab"
+      initialRouteName="StudentDashboardTab"
       screenOptions={({ route }: { route: any }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#6366F1',
+        tabBarActiveTintColor: '#0D9488',
         tabBarInactiveTintColor: '#94A3B8',
         tabBarStyle: [
           styles.tabBar,
@@ -42,16 +38,12 @@ const AdminTabNavigator: React.FC = () => {
         tabBarIcon: ({ color, size, focused }: { color: string; size: number; focused: boolean }) => {
           let iconName = 'grid-outline';
 
-          if (route.name === 'AdminDashboardTab') {
+          if (route.name === 'StudentDashboardTab') {
             iconName = focused ? 'grid' : 'grid-outline';
-          } else if (route.name === 'AdminUsersTab') {
+          } else if (route.name === 'StudentHistoryTab') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'StudentProfileTab') {
             iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'AdminClassesTab') {
-            iconName = focused ? 'school' : 'school-outline';
-          } else if (route.name === 'AdminRoomsTab') {
-            iconName = focused ? 'location' : 'location-outline';
-          } else if (route.name === 'AdminSettingsTab') {
-            iconName = focused ? 'settings' : 'settings-outline';
           }
 
           return (
@@ -63,29 +55,19 @@ const AdminTabNavigator: React.FC = () => {
       })}
     >
       <Tab.Screen
-        name="AdminDashboardTab"
-        component={AdminDashboardScreen}
+        name="StudentDashboardTab"
+        component={StudentDashboardScreen}
         options={{ tabBarLabel: 'Dashboard' }}
       />
       <Tab.Screen
-        name="AdminUsersTab"
-        component={AdminUsersScreen}
-        options={{ tabBarLabel: 'Users' }}
+        name="StudentHistoryTab"
+        component={StudentHistoryScreen}
+        options={{ tabBarLabel: 'History' }}
       />
       <Tab.Screen
-        name="AdminClassesTab"
-        component={AdminClassesScreen}
-        options={{ tabBarLabel: 'Classes' }}
-      />
-      <Tab.Screen
-        name="AdminRoomsTab"
-        component={AdminRoomsScreen}
-        options={{ tabBarLabel: 'Rooms' }}
-      />
-      <Tab.Screen
-        name="AdminSettingsTab"
-        component={AdminProfileScreen}
-        options={{ tabBarLabel: 'Settings' }}
+        name="StudentProfileTab"
+        component={StudentProfileScreen}
+        options={{ tabBarLabel: 'Profile' }}
       />
     </Tab.Navigator>
   );
@@ -112,4 +94,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AdminTabNavigator;
+export default StudentTabNavigator;
