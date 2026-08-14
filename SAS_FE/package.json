@@ -19,9 +19,13 @@
     "react": "19.2.3",
     "react-native": "0.86.2",
     "react-native-image-picker": "^8.2.1",
+    "react-native-reanimated": "^4.5.3",
     "react-native-safe-area-context": "^5.8.1",
     "react-native-screens": "^4.27.0",
-    "react-native-vector-icons": "^10.3.0"
+    "react-native-vector-icons": "^10.3.0",
+    "react-native-vision-camera": "4.7.3",
+    "react-native-vision-camera-face-detector": "1.10.2",
+    "react-native-worklets-core": "^1.6.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
