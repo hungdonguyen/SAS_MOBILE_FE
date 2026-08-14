@@ -72,3 +72,20 @@ export interface StudentUserSession {
   role: 'student' | 'lecturer' | 'admin';
   hasRegisteredFace: boolean;
 }
+
+/** Response from GET /auth/me */
+export interface MeResponse {
+  userId: string;
+  username: string;
+  email: string | null;
+  fullName: string | null;
+  role: 'student' | 'lecturer' | 'admin';
+  isActive: boolean;
+  hasRegisteredFace?: boolean;
+  avatarUrl?: string | null;
+}
+
+/** Response from DELETE /biometrics/:studentId */
+export interface DeleteBiometricResponse {
+  message: string;
+}

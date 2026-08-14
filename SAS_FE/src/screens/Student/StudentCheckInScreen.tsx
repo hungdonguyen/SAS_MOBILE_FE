@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Image,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { launchCamera } from 'react-native-image-picker';
+import Geolocation from '@react-native-community/geolocation';
 import AppIcon from '../../components/Icon/AppIcon';
 import { studentApi } from '../../services/studentApi';
 import { TodaySessionDto, JobStatusResponse } from '../../types/studentTypes';
@@ -24,19 +27,13 @@ interface StudentCheckInScreenProps {
   };
 }
 
-// Sample clean base64 image (1x1 transparent/standard placeholder) for simulation if device camera is unavailable
-const PLACEHOLDER_FACE_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-
 const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation, route }) => {
   const session = route.params?.session;
 
   const [capturedImageBase64, setCapturedImageBase64] = useState<string | null>(null);
-  const [gpsCoordinates, setGpsCoordinates] = useState<{ lat: number; lng: number }>({
-    lat: 10.762622,
-    lng: 106.660172,
-  });
-  const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'ready' | 'simulated'>('ready');
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [gpsCoordinates, setGpsCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'ready' | 'denied' | 'error'>('acquiring');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittingStep, setSubmittingStep] = useState<string>('');
@@ -56,7 +53,10 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
 
   const pollingTimerRef = useRef<any>(null);
 
+  // ─── Request GPS permission and acquire location on mount ───────────────────
   useEffect(() => {
+    requestLocationAndFetch();
+
     return () => {
       if (pollingTimerRef.current) {
         clearInterval(pollingTimerRef.current);
@@ -64,20 +64,151 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
     };
   }, []);
 
-  const handleCaptureFace = () => {
-    // In React Native, set the face photo base64
-    setCapturedImageBase64(PLACEHOLDER_FACE_BASE64);
-    Alert.alert('Camera Capture', 'Face frame captured and cropped 1:1 successfully!');
+  const requestLocationAndFetch = async () => {
+    setGpsStatus('acquiring');
+
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Quyền truy cập vị trí',
+            message:
+              'SAS Mobile cần quyền truy cập GPS để xác minh bạn đang trong khuôn viên trường khi điểm danh.',
+            buttonNeutral: 'Hỏi lại sau',
+            buttonNegative: 'Từ chối',
+            buttonPositive: 'Cho phép',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          setGpsStatus('denied');
+          Alert.alert(
+            'Quyền GPS bị từ chối',
+            'Không thể lấy vị trí GPS. Bật quyền Location trong Settings để điểm danh đầy đủ.',
+            [{ text: 'OK' }],
+          );
+          return;
+        }
+      } catch (err) {
+        setGpsStatus('error');
+        return;
+      }
+    }
+
+    Geolocation.getCurrentPosition(
+      (position) => {
+        setGpsCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setGpsStatus('ready');
+      },
+      (error) => {
+        console.log('GPS error:', error.message);
+        setGpsStatus('error');
+        Alert.alert(
+          'Lỗi GPS',
+          'Không thể lấy tọa độ. Hãy bật GPS trên thiết bị và thử lại.',
+          [
+            { text: 'Hủy', style: 'cancel' },
+            { text: 'Thử lại', onPress: requestLocationAndFetch },
+          ],
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+    );
+  };
+
+  // ─── Open real camera with permission request ────────────────────────────────
+  const handleCaptureFace = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Quyền truy cập Camera',
+            message: 'SAS Mobile cần quyền Camera để chụp ảnh khuôn mặt phục vụ điểm danh.',
+            buttonNeutral: 'Hỏi lại sau',
+            buttonNegative: 'Từ chối',
+            buttonPositive: 'Cho phép',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert(
+            'Quyền Camera bị từ chối',
+            'Không thể mở camera. Hãy bật quyền Camera trong Settings của ứng dụng.',
+          );
+          return;
+        }
+      } catch (err) {
+        Alert.alert('Lỗi', 'Không thể yêu cầu quyền camera.');
+        return;
+      }
+    }
+
+    launchCamera(
+      {
+        mediaType: 'photo',
+        cameraType: 'front',
+        quality: 0.8,
+        includeBase64: true,
+        saveToPhotos: false,
+      },
+      (response) => {
+        if (response.didCancel) {
+          return; // User cancelled — no alert needed
+        }
+        if (response.errorCode) {
+          Alert.alert(
+            'Lỗi Camera',
+            response.errorMessage || 'Không thể chụp ảnh. Vui lòng thử lại.',
+          );
+          return;
+        }
+        const asset = response.assets?.[0];
+        if (!asset) {
+          Alert.alert('Lỗi', 'Không nhận được ảnh từ camera.');
+          return;
+        }
+        if (!asset.base64) {
+          Alert.alert('Lỗi', 'Không thể đọc dữ liệu ảnh. Vui lòng thử lại.');
+          return;
+        }
+        setCapturedImageBase64(asset.base64);
+        setCapturedImageUri(asset.uri || null);
+      },
+    );
   };
 
   const handleCheckInSubmit = async () => {
     if (!session) {
-      Alert.alert('Error', 'No active session specified');
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin buổi học.');
+      return;
+    }
+
+    // Bug #6 fix: Block submit if photo not captured
+    if (!capturedImageBase64) {
+      Alert.alert(
+        'Chưa chụp ảnh',
+        'Vui lòng chụp ảnh khuôn mặt trước khi nộp điểm danh.',
+      );
+      return;
+    }
+
+    if (gpsStatus !== 'ready' || !gpsCoordinates) {
+      Alert.alert(
+        'GPS chưa sẵn sàng',
+        'Đang chờ lấy tọa độ GPS. Vui lòng đợi hoặc thử lại.',
+        [
+          { text: 'Thử lại GPS', onPress: requestLocationAndFetch },
+          { text: 'OK', style: 'cancel' },
+        ],
+      );
       return;
     }
 
     setIsSubmitting(true);
-    setSubmittingStep('Submitting check-in payload to server...');
+    setSubmittingStep('Đang gửi dữ liệu điểm danh lên server...');
 
     try {
       // 1. Submit check-in
@@ -86,23 +217,37 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
         checkInMethod: 'SELF_CHECKIN',
         gpsLat: gpsCoordinates.lat,
         gpsLng: gpsCoordinates.lng,
-        imageBase64: capturedImageBase64 || PLACEHOLDER_FACE_BASE64,
+        imageBase64: capturedImageBase64,
       });
 
       const jobId = queuedRes.jobId;
-      setSubmittingStep('Verifying Network IP, GPS location, and Face AI via BullMQ queue...');
+      setSubmittingStep('Đang xác minh Network IP, GPS và Face AI...');
 
-      // 2. Poll job status
+      // 2. Poll job status — Bug #7 fix: check timeout BEFORE processing result
       let attempts = 0;
-      const maxAttempts = 15; // 15 * 1.5s = ~22 seconds timeout
+      const maxAttempts = 15; // 15 × 1.5s = ~22 seconds
 
       pollingTimerRef.current = setInterval(async () => {
         attempts++;
+
+        // Bug #7 fix: Check timeout first to avoid processing after timeout
+        if (attempts > maxAttempts) {
+          clearInterval(pollingTimerRef.current);
+          setIsSubmitting(false);
+          setJobResultModal({
+            visible: true,
+            success: false,
+            title: 'Quá thời gian chờ',
+            description: 'AI xử lý quá lâu. Vui lòng thử lại.',
+          });
+          return;
+        }
+
         try {
           const statusRes: JobStatusResponse = await studentApi.getJobStatus(jobId);
 
           if (statusRes.status === 'completed') {
-            if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
+            clearInterval(pollingTimerRef.current);
             setIsSubmitting(false);
 
             const result = statusRes.result;
@@ -111,50 +256,38 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
             setJobResultModal({
               visible: true,
               success: true,
-              title: isLate ? 'Checked In (Late)' : 'Check-In Successful!',
-              description: `Your attendance has been confirmed for ${session.subjectName} (${session.roomName}).`,
+              title: isLate ? 'Điểm danh muộn' : 'Điểm danh thành công!',
+              description: `Đã xác nhận điểm danh ${session.subjectName} (${session.roomName}).`,
               statusText: isLate ? 'LATE' : 'PRESENT',
               confidence: result?.confidence ? Math.round(result.confidence * 100) : 98,
             });
           } else if (statusRes.status === 'failed') {
-            if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
+            clearInterval(pollingTimerRef.current);
             setIsSubmitting(false);
 
             setJobResultModal({
               visible: true,
               success: false,
-              title: 'Check-In Verification Failed',
+              title: 'Xác minh thất bại',
               description:
                 statusRes.error ||
-                'Verification rejected. Please ensure you are inside the classroom and your face is clearly visible.',
+                'Bị từ chối. Hãy đảm bảo bạn đang trong phòng học và khuôn mặt rõ ràng.',
             });
           } else {
-            setSubmittingStep(`AI & Geofence analysis in progress (${attempts}s)...`);
-          }
-
-          if (attempts >= maxAttempts) {
-            if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
-            setIsSubmitting(false);
-            setJobResultModal({
-              visible: true,
-              success: false,
-              title: 'Verification Timeout',
-              description: 'AI processing took too long to respond. Please try again.',
-            });
+            setSubmittingStep(`AI đang phân tích GPS và khuôn mặt... (${attempts}s)`);
           }
         } catch (pollErr: any) {
           console.log('Error polling job status:', pollErr);
-          // If 404 or connection failure
           if (attempts >= 5) {
-            if (pollingTimerRef.current) clearInterval(pollingTimerRef.current);
+            clearInterval(pollingTimerRef.current);
             setIsSubmitting(false);
             setJobResultModal({
               visible: true,
               success: false,
-              title: 'Connection Error',
+              title: 'Lỗi kết nối',
               description:
                 pollErr.response?.data?.message ||
-                'Unable to get verification outcome from server.',
+                'Không thể nhận kết quả từ server. Vui lòng thử lại.',
             });
           }
         }
@@ -162,10 +295,22 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
     } catch (err: any) {
       setIsSubmitting(false);
       const errMsg =
-        err.response?.data?.message || 'Check-in request failed. Please check server connection.';
-      Alert.alert('Check-In Error', errMsg);
+        err.response?.data?.message || 'Gửi điểm danh thất bại. Kiểm tra kết nối server.';
+      Alert.alert('Lỗi Điểm Danh', errMsg);
     }
   };
+
+  // ─── GPS status display helper ───────────────────────────────────────────────
+  const getGpsStatusText = () => {
+    switch (gpsStatus) {
+      case 'acquiring': return 'Đang lấy tọa độ GPS...';
+      case 'ready': return `${gpsCoordinates?.lat.toFixed(4)}, ${gpsCoordinates?.lng.toFixed(4)} (Đã lấy)`;
+      case 'denied': return 'Quyền GPS bị từ chối';
+      case 'error': return 'Lỗi GPS — nhấn để thử lại';
+    }
+  };
+
+  const gpsStatusColor = gpsStatus === 'ready' ? '#059669' : gpsStatus === 'acquiring' ? '#D97706' : '#DC2626';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -221,8 +366,8 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
               <Text style={styles.layerTitle}>1. University Network (IP)</Text>
               <Text style={styles.layerDesc}>
                 {session?.validations?.networkEnabled
-                  ? 'Server automatically checks campus subnet'
-                  : 'Disabled by lecturer for this session'}
+                  ? 'Server tự động kiểm tra subnet campus'
+                  : 'Giảng viên đã tắt kiểm tra mạng cho buổi này'}
               </Text>
             </View>
             <AppIcon
@@ -233,19 +378,30 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
           </View>
 
           {/* Layer 2: GPS Geofence */}
-          <View style={styles.layerRow}>
+          <TouchableOpacity
+            style={styles.layerRow}
+            onPress={gpsStatus === 'error' || gpsStatus === 'denied' ? requestLocationAndFetch : undefined}
+            activeOpacity={gpsStatus === 'error' ? 0.7 : 1}
+          >
             <View style={styles.layerIconBadge}>
               <Text style={styles.layerEmoji}>📍</Text>
             </View>
             <View style={styles.layerInfo}>
               <Text style={styles.layerTitle}>2. GPS Geofence Location</Text>
-              <Text style={styles.layerDesc}>
-                Coords: {gpsCoordinates.lat.toFixed(4)}, {gpsCoordinates.lng.toFixed(4)} (
-                {gpsStatus === 'ready' ? 'Acquired' : 'Simulated'})
+              <Text style={[styles.layerDesc, { color: gpsStatusColor }]}>
+                {getGpsStatusText()}
               </Text>
             </View>
-            <AppIcon name="checkmark-circle-outline" size={20} color="#059669" />
-          </View>
+            {gpsStatus === 'acquiring' ? (
+              <ActivityIndicator size="small" color="#D97706" />
+            ) : (
+              <AppIcon
+                name={gpsStatus === 'ready' ? 'checkmark-circle-outline' : 'alert-circle-outline'}
+                size={20}
+                color={gpsStatusColor}
+              />
+            )}
+          </TouchableOpacity>
 
           {/* Layer 3: Face AI Biometrics */}
           <View style={styles.layerRow}>
@@ -255,7 +411,7 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
             <View style={styles.layerInfo}>
               <Text style={styles.layerTitle}>3. AI Liveness & Face Match</Text>
               <Text style={styles.layerDesc}>
-                {capturedImageBase64 ? 'Face frame ready' : 'Tap capture frame below'}
+                {capturedImageBase64 ? '✓ Ảnh khuôn mặt sẵn sàng' : 'Nhấn nút camera bên dưới để chụp'}
               </Text>
             </View>
             <AppIcon
@@ -268,19 +424,19 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
 
         {/* Camera / Face Capture Frame Box */}
         <View style={styles.cameraBox}>
-          <Text style={styles.cameraBoxTitle}>Face Photo Preview</Text>
+          <Text style={styles.cameraBoxTitle}>Face Photo</Text>
 
           <View style={styles.viewfinder}>
-            {capturedImageBase64 ? (
+            {capturedImageUri ? (
               <View style={styles.capturedPreview}>
                 <AppIcon name="checkmark-circle-outline" size={48} color="#059669" />
-                <Text style={styles.capturedText}>Face Captured & Ready</Text>
-                <Text style={styles.capturedSubText}>1:1 Portrait Matrix Prepared</Text>
+                <Text style={styles.capturedText}>Ảnh đã chụp</Text>
+                <Text style={styles.capturedSubText}>Sẵn sàng gửi AI xác minh</Text>
               </View>
             ) : (
               <View style={styles.viewfinderPlaceholder}>
                 <AppIcon name="people-outline" size={54} color="#94A3B8" />
-                <Text style={styles.viewfinderText}>Position your face in center</Text>
+                <Text style={styles.viewfinderText}>Đặt khuôn mặt vào khung</Text>
               </View>
             )}
           </View>
@@ -293,17 +449,20 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
             >
               <AppIcon name="camera-outline" size={18} color="#0D9488" />
               <Text style={styles.captureBtnText}>
-                {capturedImageBase64 ? 'Retake Photo' : 'Capture Face Frame'}
+                {capturedImageBase64 ? 'Chụp lại' : 'Chụp ảnh khuôn mặt'}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Submit Button */}
+        {/* Submit Button — disabled if no photo */}
         <TouchableOpacity
-          style={[styles.submitCheckInBtn, isSubmitting && styles.submitBtnDisabled]}
+          style={[
+            styles.submitCheckInBtn,
+            (isSubmitting || !capturedImageBase64) && styles.submitBtnDisabled,
+          ]}
           onPress={handleCheckInSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !capturedImageBase64}
           activeOpacity={0.85}
         >
           {isSubmitting ? (
@@ -311,7 +470,9 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
           ) : (
             <>
               <AppIcon name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.submitBtnText}>Submit 3-Layer Check-In</Text>
+              <Text style={styles.submitBtnText}>
+                {!capturedImageBase64 ? 'Chụp ảnh trước khi nộp' : 'Nộp điểm danh 3 lớp'}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -322,7 +483,7 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
         <View style={styles.modalBackdrop}>
           <View style={styles.processingCard}>
             <ActivityIndicator size="large" color="#0D9488" />
-            <Text style={styles.processingTitle}>Verifying Attendance</Text>
+            <Text style={styles.processingTitle}>Đang xác minh điểm danh</Text>
             <Text style={styles.processingSubtitle}>{submittingStep}</Text>
           </View>
         </View>
@@ -370,7 +531,7 @@ const StudentCheckInScreen: React.FC<StudentCheckInScreenProps> = ({ navigation,
               activeOpacity={0.85}
             >
               <Text style={styles.resultDismissText}>
-                {jobResultModal.success ? 'Done & Return' : 'Try Again'}
+                {jobResultModal.success ? 'Xong & Quay lại' : 'Thử lại'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -596,7 +757,7 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   modalBackdrop: {

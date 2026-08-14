@@ -195,6 +195,13 @@ const StudentHistoryScreen: React.FC = () => {
             <AppIcon name="alert-circle-outline" size={32} color="#EF4444" />
             <Text style={styles.errorTitle}>Error Loading History</Text>
             <Text style={styles.errorText}>{errorMsg}</Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => fetchHistory()}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         ) : filteredList.length === 0 ? (
           <View style={styles.centerBox}>
@@ -428,6 +435,18 @@ const styles = StyleSheet.create({
     color: '#B91C1C',
     textAlign: 'center',
     marginTop: 4,
+  },
+  retryBtn: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   recordCard: {
     backgroundColor: '#FFFFFF',

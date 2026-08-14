@@ -1,13 +1,9 @@
 import { StudentUserSession } from '../types/studentTypes';
 
-let sessionState: StudentUserSession | null = {
-  userId: 'stu_2211001',
-  username: 'stu_2211001',
-  role: 'student',
-  hasRegisteredFace: false,
-};
+let sessionState: StudentUserSession | null = null;
 
 let storedAccessToken: string | null = null;
+
 
 export const authStorage = {
   getUser: (): StudentUserSession | null => {

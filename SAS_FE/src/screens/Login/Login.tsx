@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { authService, authStorage as adminAuthStorage } from '../../api';
 import { studentApi } from '../../services/studentApi';
 import { authStorage as studentAuthStorage } from '../../services/authStorage';
 import { apiConfig } from '../../services/apiConfig';
@@ -34,45 +33,28 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      // Authenticate via authService
-      const data = await authService.login({
-        username: id.trim(),
-        password,
-      });
-
-      // Synchronize with student session storage if student
-      studentAuthStorage.setUser({
-        userId: data.userId,
-        username: id.trim(),
-        role: data.role as any,
-        hasRegisteredFace: Boolean(data.hasRegisteredFace),
-      });
-      const token = adminAuthStorage.getToken();
-      if (token) {
-        studentAuthStorage.setAccessToken(token);
-      }
+      // Use studentApi.login() — hits the real NestJS backend for ALL roles
+      const data = await studentApi.login(id.trim(), password);
 
       setMessage({
         text: `Welcome, ${id.trim()}! Role: ${data.role || 'user'}`,
         type: 'success',
       });
 
-      // Role-based dynamic routing
-      setTimeout(() => {
-        const userRole = (data.role || '').toLowerCase();
-
-        if (userRole === 'admin') {
-          navigation.navigate('AdminHome');
-        } else if (userRole === 'lecturer' || userRole === 'teacher') {
-          navigation.navigate('Home');
-        } else {
-          // Student role: live API flow
-          navigation.navigate('StudentHome');
-        }
-      }, 500);
+      // Role-based dynamic routing — navigate immediately, no artificial delay
+      const userRole = (data.role || '').toLowerCase();
+      if (userRole === 'admin') {
+        navigation.navigate('AdminHome');
+      } else if (userRole === 'lecturer' || userRole === 'teacher') {
+        navigation.navigate('Home');
+      } else {
+        // Student role: live API flow
+        navigation.navigate('StudentHome');
+      }
     } catch (error: any) {
       console.log('Login error:', error);
       const errorMessage =
+        error.response?.data?.message ||
         error.message ||
         `Login failed. Ensure backend NestJS is running on ${apiConfig.getBaseUrl()}`;
       setMessage({ text: errorMessage, type: 'error' });
@@ -80,6 +62,7 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -184,7 +167,6 @@ const Login: React.FC = () => {
             <TouchableOpacity
               style={styles.adminModeBtn}
               onPress={() => {
-                adminAuthStorage.setUserSession('admin-1', 'admin', 'mock-token');
                 navigation.navigate('AdminHome');
               }}
               activeOpacity={0.8}

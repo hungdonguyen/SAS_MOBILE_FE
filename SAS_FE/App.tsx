@@ -9,6 +9,7 @@ import AdminTabNavigator from './src/navigation/AdminTabNavigator';
 import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import StudentCheckInScreen from './src/screens/Student/StudentCheckInScreen';
 import StudentFaceRegisterScreen from './src/screens/Student/StudentFaceRegisterScreen';
+import { navigationRef } from './src/services/navigationService';
 
 const Stack = createNativeStackNavigator();
 
@@ -17,7 +18,7 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator initialRouteName="Login">
           {/* Auth */}
           <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
