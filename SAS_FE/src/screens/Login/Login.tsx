@@ -10,10 +10,8 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
-
-axios.defaults.withCredentials = true;
+import { authService } from '../../api';
 
 const Login = () => {
     const navigation = useNavigation<any>();
@@ -23,38 +21,35 @@ const Login = () => {
     const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
 
     const handleLoginAxios = async () => {
+        if (!id.trim() || !password.trim()) {
+            setMessage({ text: 'Please enter both ID and password', type: 'error' });
+            return;
+        }
+
         setMessage(null);
         setLoading(true);
 
         try {
-            // Note: 10.0.2.2 chỉ dùng cho Android Emulator.
-            // Nếu dùng iOS Simulator thì dùng localhost hoặc 127.0.0.1
-            // Nếu test máy thật thì phải dùng IP LAN (vd: 192.168.1.X)
-            const response = await axios.post('http://10.0.2.2:3001/auth/login', {
-                username: id,
+            const data = await authService.login({
+                username: id.trim(),
                 password,
-            }, {
-                // Bắt buộc để React Native nhận được HttpOnly Cookie (access_token)
-                withCredentials: true
             });
 
-            // Lấy thông tin từ backend gửi về
-            const { userId, role, hasRegisteredFace } = response.data;
-
-            // TODO: Lưu userId, role, hasRegisteredFace vào Redux / Zustand
-            console.log('Login Success:', response.data);
-
+            console.log('Login Success:', data);
             setMessage({ text: 'Login successful! Redirecting...', type: 'success' });
 
-            // Điều hướng sang Home
+            // Role-based navigation
             setTimeout(() => {
-                navigation.navigate('Home');
+                if (data.role === 'admin') {
+                    navigation.navigate('AdminHome');
+                } else {
+                    navigation.navigate('Home');
+                }
             }, 500);
 
         } catch (error: any) {
-            console.log(error);
-            // Get error message from backend (if any)
-            const errorMessage = error.response?.data?.message || 'Wrong ID or Password';
+            console.log('Login Error:', error);
+            const errorMessage = error.message || 'Wrong ID or Password';
             setMessage({ text: errorMessage, type: 'error' });
         } finally {
             setLoading(false);

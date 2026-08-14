@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,150 +6,52 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppIcon from '../../components/Icon/AppIcon';
 import SearchBar from '../../components/SearchBar/SearchBar';
 import StatCard from '../../components/StatCard/StatCard';
 import { AdminStatMetric, AdminClassItem, AnomalyAlert } from '../../types/adminTypes';
-import { StatMetric } from '../../types/dashboard';
-
-const ADMIN_STATS: StatMetric[] = [
-  {
-    id: 'astat-1',
-    title: 'Total Classes',
-    value: 24,
-    trend: '+12% this semester',
-    iconName: 'school-outline',
-    backgroundColor: '#6366F1', // Indigo
-    accentColor: '#4F46E5',
-  },
-  {
-    id: 'astat-2',
-    title: 'Total Students',
-    value: '1,254',
-    trend: '+5% this semester',
-    iconName: 'people-outline',
-    backgroundColor: '#2563EB', // Blue
-    accentColor: '#1D4ED8',
-  },
-  {
-    id: 'astat-3',
-    title: 'Avg Attendance',
-    value: '85%',
-    trend: '+3% vs last week',
-    iconName: 'checkmark-circle-outline',
-    backgroundColor: '#10B981', // Emerald Green
-    accentColor: '#059669',
-  },
-  {
-    id: 'astat-4',
-    title: 'Active Sessions',
-    value: 5,
-    trend: '5 rooms ongoing',
-    iconName: 'time-outline',
-    backgroundColor: '#F59E0B', // Amber
-    accentColor: '#D97706',
-  },
-];
-
-const MOCK_ALERTS: AnomalyAlert[] = [
-  {
-    id: 'al-1',
-    type: 'warning',
-    title: 'Spoofing Attempt Detected',
-    description: 'Student 21110004 flagged for location mismatch at room A3-201.',
-    timestamp: '5m ago',
-  },
-  {
-    id: 'al-2',
-    type: 'error',
-    title: 'AI Camera Disconnected',
-    description: 'Room B1-401 camera IP 192.168.1.105 unreachable.',
-    timestamp: '15m ago',
-  },
-  {
-    id: 'al-3',
-    type: 'info',
-    title: 'Session Started',
-    description: 'Artificial Intelligence AI405 started in C3-102.',
-    timestamp: '30m ago',
-  },
-];
-
-const MOCK_ACTIVE_CLASSES: AdminClassItem[] = [
-  {
-    id: 'ac-1',
-    classCode: 'WP301',
-    subjectName: 'Web Programming',
-    room: 'A3-201',
-    building: 'Building A',
-    lecturerName: 'Nguyễn Văn A',
-    enrolledCount: 45,
-    totalCapacity: 50,
-    schedule: 'Thứ 3, Thứ 5 (07:30 - 09:30)',
-    status: 'ongoing',
-    attendanceRate: 90,
-  },
-  {
-    id: 'ac-2',
-    classCode: 'DB201',
-    subjectName: 'Database Systems',
-    room: 'A2-105',
-    building: 'Building A',
-    lecturerName: 'Trần Thị B',
-    enrolledCount: 30,
-    totalCapacity: 30,
-    schedule: 'Thứ 2, Thứ 6 (09:45 - 11:45)',
-    status: 'upcoming',
-    attendanceRate: 100,
-  },
-  {
-    id: 'ac-3',
-    classCode: 'NW302',
-    subjectName: 'Computer Networks',
-    room: 'B1-401',
-    building: 'Building B',
-    lecturerName: 'Lê Văn C',
-    enrolledCount: 38,
-    totalCapacity: 40,
-    schedule: 'Thứ 3, Thứ 5 (07:30 - 09:30)',
-    status: 'ongoing',
-    attendanceRate: 95,
-  },
-  {
-    id: 'ac-4',
-    classCode: 'AI405',
-    subjectName: 'Artificial Intelligence',
-    room: 'C3-102',
-    building: 'Building C',
-    lecturerName: 'Phạm Văn D',
-    enrolledCount: 15,
-    totalCapacity: 60,
-    schedule: 'Thứ 6 (07:30 - 11:45)',
-    status: 'ongoing',
-    attendanceRate: 25,
-  },
-];
+import { dashboardService } from '../../api';
 
 interface AdminDashboardScreenProps {
   navigation?: any;
 }
 
 const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navigation }) => {
+  const [stats, setStats] = useState<AdminStatMetric[]>([]);
+  const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
+  const [activeClasses, setActiveClasses] = useState<AdminClassItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [classFilter, setClassFilter] = useState<'all' | 'ongoing' | 'upcoming'>('all');
-  const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
+  const loadDashboardData = useCallback(async () => {
+    try {
+      const data = await dashboardService.getDashboardSummary();
+      setStats(data.stats);
+      setAlerts(data.alerts);
+      setActiveClasses(data.activeClasses);
+    } catch (error) {
+      console.log('Error loading dashboard summary:', error);
+    } finally {
+      setLoading(false);
       setRefreshing(false);
-    }, 800);
+    }
   }, []);
 
-  const filteredClasses = MOCK_ACTIVE_CLASSES.filter((c) => {
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData();
+  };
+
+  const filteredClasses = activeClasses.filter((c) => {
     if (classFilter !== 'all' && c.status !== classFilter) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -160,6 +62,12 @@ const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navigation 
       c.room.toLowerCase().includes(q)
     );
   });
+
+  const getFormattedDate = () => {
+    const today = new Date();
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+    return today.toLocaleDateString('en-US', options);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -178,7 +86,7 @@ const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navigation 
         <View style={styles.adminActions}>
           <View style={styles.dateBadge}>
             <AppIcon name="calendar-outline" size={12} color="#64748B" />
-            <Text style={styles.dateText}>May 11, 2026</Text>
+            <Text style={styles.dateText}>{getFormattedDate()}</Text>
           </View>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>AD</Text>
@@ -199,172 +107,188 @@ const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navigation 
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />
         }
       >
-        {/* Stat Cards Grid (2x2) */}
-        <View style={styles.statsGrid}>
-          {ADMIN_STATS.map((stat) => (
-            <View key={stat.id} style={styles.statCol}>
-              <StatCard item={stat} />
-            </View>
-          ))}
-        </View>
-
-        {/* System Alerts / Security Feed */}
-        <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionHeaderTitleGroup}>
-            <AppIcon name="notifications-outline" size={16} color="#6366F1" />
-            <Text style={styles.sectionTitle}>System Alerts & Anomaly Feed</Text>
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#6366F1" />
+            <Text style={styles.centerText}>Loading campus system metrics...</Text>
           </View>
-        </View>
-
-        <View style={styles.alertsCardGroup}>
-          {MOCK_ALERTS.map((alert) => {
-            const isWarn = alert.type === 'warning';
-            const isErr = alert.type === 'error';
-            return (
-              <View key={alert.id} style={styles.alertItem}>
-                <View
-                  style={[
-                    styles.alertDot,
-                    isWarn
-                      ? styles.dotWarn
-                      : isErr
-                      ? styles.dotErr
-                      : styles.dotInfo,
-                  ]}
-                />
-                <View style={styles.alertContent}>
-                  <View style={styles.alertTopRow}>
-                    <Text style={styles.alertTitle}>{alert.title}</Text>
-                    <Text style={styles.alertTime}>{alert.timestamp}</Text>
-                  </View>
-                  <Text style={styles.alertDesc}>{alert.description}</Text>
+        ) : (
+          <>
+            {/* Stat Cards Grid (2x2) */}
+            <View style={styles.statsGrid}>
+              {stats.map((stat) => (
+                <View key={stat.id} style={styles.statCol}>
+                  <StatCard item={stat} />
                 </View>
+              ))}
+            </View>
+
+            {/* System Alerts / Security Feed */}
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.sectionHeaderTitleGroup}>
+                <AppIcon name="notifications-outline" size={16} color="#6366F1" />
+                <Text style={styles.sectionTitle}>System Alerts & Anomaly Feed</Text>
               </View>
-            );
-          })}
-        </View>
+            </View>
 
-        {/* Live Class Monitoring Section */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Live Class Monitoring</Text>
-          <Text style={styles.sectionBadgeText}>{filteredClasses.length} Active</Text>
-        </View>
+            <View style={styles.alertsCardGroup}>
+              {alerts.map((alert) => {
+                const isWarn = alert.type === 'warning';
+                const isErr = alert.type === 'error';
+                return (
+                  <View key={alert.id} style={styles.alertItem}>
+                    <View
+                      style={[
+                        styles.alertDot,
+                        isWarn
+                          ? styles.dotWarn
+                          : isErr
+                          ? styles.dotErr
+                          : styles.dotInfo,
+                      ]}
+                    />
+                    <View style={styles.alertContent}>
+                      <View style={styles.alertTopRow}>
+                        <Text style={styles.alertTitle}>{alert.title}</Text>
+                        <Text style={styles.alertTime}>{alert.timestamp}</Text>
+                      </View>
+                      <Text style={styles.alertDesc}>{alert.description}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
 
-        {/* Filter Pills Tabs */}
-        <View style={styles.filterTabsRow}>
-          <TouchableOpacity
-            style={[styles.filterTab, classFilter === 'all' && styles.filterTabActive]}
-            onPress={() => setClassFilter('all')}
-          >
-            <Text
-              style={[
-                styles.filterTabText,
-                classFilter === 'all' && styles.filterTabTextActive,
-              ]}
-            >
-              All ({MOCK_ACTIVE_CLASSES.length})
-            </Text>
-          </TouchableOpacity>
+            {/* Live Class Monitoring Section */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Live Class Monitoring</Text>
+              <Text style={styles.sectionBadgeText}>{filteredClasses.length} Active</Text>
+            </View>
 
-          <TouchableOpacity
-            style={[styles.filterTab, classFilter === 'ongoing' && styles.filterTabActive]}
-            onPress={() => setClassFilter('ongoing')}
-          >
-            <Text
-              style={[
-                styles.filterTabText,
-                classFilter === 'ongoing' && styles.filterTabTextActive,
-              ]}
-            >
-              Ongoing (3)
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterTab, classFilter === 'upcoming' && styles.filterTabActive]}
-            onPress={() => setClassFilter('upcoming')}
-          >
-            <Text
-              style={[
-                styles.filterTabText,
-                classFilter === 'upcoming' && styles.filterTabTextActive,
-              ]}
-            >
-              Upcoming (1)
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {filteredClasses.map((item) => {
-          const isOngoing = item.status === 'ongoing';
-
-          return (
-            <View key={item.id} style={styles.classMonitorCard}>
-              <View style={styles.classCardHeader}>
-                <View style={styles.classCodeBadge}>
-                  <Text style={styles.classCodeText}>{item.classCode}</Text>
-                </View>
-
-                <View
+            {/* Filter Pills Tabs */}
+            <View style={styles.filterTabsRow}>
+              <TouchableOpacity
+                style={[styles.filterTab, classFilter === 'all' && styles.filterTabActive]}
+                onPress={() => setClassFilter('all')}
+              >
+                <Text
                   style={[
-                    styles.statusPill,
-                    isOngoing ? styles.statusOngoing : styles.statusUpcoming,
+                    styles.filterTabText,
+                    classFilter === 'all' && styles.filterTabTextActive,
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      isOngoing ? styles.dotOngoing : styles.dotUpcoming,
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.statusText,
-                      isOngoing ? styles.statusTextOngoing : styles.statusTextUpcoming,
-                    ]}
-                  >
-                    {isOngoing ? 'Ongoing' : 'Upcoming'}
-                  </Text>
-                </View>
-              </View>
+                  All ({activeClasses.length})
+                </Text>
+              </TouchableOpacity>
 
-              <Text style={styles.subjectName}>{item.subjectName}</Text>
+              <TouchableOpacity
+                style={[styles.filterTab, classFilter === 'ongoing' && styles.filterTabActive]}
+                onPress={() => setClassFilter('ongoing')}
+              >
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    classFilter === 'ongoing' && styles.filterTabTextActive,
+                  ]}
+                >
+                  Ongoing ({activeClasses.filter((c) => c.status === 'ongoing').length})
+                </Text>
+              </TouchableOpacity>
 
-              <View style={styles.metaRow}>
-                <View style={styles.metaItem}>
-                  <AppIcon name="school-outline" size={13} color="#64748B" />
-                  <Text style={styles.metaText}>Lecturer: {item.lecturerName}</Text>
-                </View>
-              </View>
-
-              <View style={styles.metaRow}>
-                <View style={styles.metaItem}>
-                  <AppIcon name="location-outline" size={13} color="#64748B" />
-                  <Text style={styles.metaText}>{item.room} ({item.building})</Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <AppIcon name="time-outline" size={13} color="#64748B" />
-                  <Text style={styles.metaText}>{item.schedule}</Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.cardFooter}>
-                <View style={styles.attendanceProgressGroup}>
-                  <Text style={styles.progressLabel}>Checked In</Text>
-                  <Text style={styles.progressValueText}>
-                    <Text style={styles.checkedCount}>{item.enrolledCount}</Text> / {item.totalCapacity}
-                  </Text>
-                </View>
-
-                <View style={styles.ratePill}>
-                  <Text style={styles.ratePillText}>{item.attendanceRate}% Rate</Text>
-                </View>
-              </View>
+              <TouchableOpacity
+                style={[styles.filterTab, classFilter === 'upcoming' && styles.filterTabActive]}
+                onPress={() => setClassFilter('upcoming')}
+              >
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    classFilter === 'upcoming' && styles.filterTabTextActive,
+                  ]}
+                >
+                  Upcoming ({activeClasses.filter((c) => c.status === 'upcoming').length})
+                </Text>
+              </TouchableOpacity>
             </View>
-          );
-        })}
+
+            {filteredClasses.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <AppIcon name="school-outline" size={40} color="#CBD5E1" />
+                <Text style={styles.emptyTitle}>No active classes match filter</Text>
+              </View>
+            ) : (
+              filteredClasses.map((item) => {
+                const isOngoing = item.status === 'ongoing';
+
+                return (
+                  <View key={item.id} style={styles.classMonitorCard}>
+                    <View style={styles.classCardHeader}>
+                      <View style={styles.classCodeBadge}>
+                        <Text style={styles.classCodeText}>{item.classCode}</Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.statusPill,
+                          isOngoing ? styles.statusOngoing : styles.statusUpcoming,
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.statusDot,
+                            isOngoing ? styles.dotOngoing : styles.dotUpcoming,
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.statusText,
+                            isOngoing ? styles.statusTextOngoing : styles.statusTextUpcoming,
+                          ]}
+                        >
+                          {isOngoing ? 'Ongoing' : 'Upcoming'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.subjectName}>{item.subjectName}</Text>
+
+                    <View style={styles.metaRow}>
+                      <View style={styles.metaItem}>
+                        <AppIcon name="school-outline" size={13} color="#64748B" />
+                        <Text style={styles.metaText}>Lecturer: {item.lecturerName}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.metaRow}>
+                      <View style={styles.metaItem}>
+                        <AppIcon name="location-outline" size={13} color="#64748B" />
+                        <Text style={styles.metaText}>{item.room} ({item.building})</Text>
+                      </View>
+                      <View style={styles.metaItem}>
+                        <AppIcon name="time-outline" size={13} color="#64748B" />
+                        <Text style={styles.metaText}>{item.schedule}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.divider} />
+
+                    <View style={styles.cardFooter}>
+                      <View style={styles.attendanceProgressGroup}>
+                        <Text style={styles.progressLabel}>Status</Text>
+                        <Text style={styles.progressValueText}>
+                          <Text style={styles.checkedCount}>Active</Text> Section
+                        </Text>
+                      </View>
+
+                      <View style={styles.ratePill}>
+                        <Text style={styles.ratePillText}>{item.attendanceRate}% Attendance</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -653,6 +577,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#4F46E5',
+  },
+  centerContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  centerText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
 });
 
