@@ -158,10 +158,18 @@ const Login: React.FC = () => {
 
             <TouchableOpacity
               style={styles.lecturerModeBtn}
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => {
+                studentAuthStorage.setUser({
+                  userId: 'demo-lecturer-id',
+                  username: 'lec_nguyen',
+                  role: 'lecturer',
+                  hasRegisteredFace: false,
+                });
+                navigation.navigate('Home');
+              }}
               activeOpacity={0.8}
             >
-              <Text style={styles.lecturerModeText}>Lecturer (Mock)</Text>
+              <Text style={styles.lecturerModeText}>Lecturer Mode</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

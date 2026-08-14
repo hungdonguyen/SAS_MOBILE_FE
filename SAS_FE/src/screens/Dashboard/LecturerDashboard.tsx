@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,113 +6,163 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Header from '../../components/Header/Header';
 import SearchBar from '../../components/SearchBar/SearchBar';
 import StatCard from '../../components/StatCard/StatCard';
 import ScheduleCard from '../../components/ScheduleCard/ScheduleCard';
 import AppIcon from '../../components/Icon/AppIcon';
 import { StatMetric, ScheduleItem, SessionStatusType } from '../../types/dashboard';
-
-const INITIAL_STATS: StatMetric[] = [
-  {
-    id: 'stat-1',
-    title: 'Assigned Classes',
-    value: 6,
-    trend: '+8% compared to last week',
-    iconName: 'school-outline',
-    backgroundColor: '#0D9488', // Dark Teal
-    accentColor: '#0F766E',
-  },
-  {
-    id: 'stat-2',
-    title: 'Students',
-    value: 186,
-    trend: '+8% compared to last week',
-    iconName: 'people-outline',
-    backgroundColor: '#2563EB', // Vivid Blue
-    accentColor: '#1D4ED8',
-  },
-  {
-    id: 'stat-3',
-    title: 'Attendance Rate',
-    value: '91%',
-    trend: '+8% compared to last week',
-    iconName: 'checkmark-circle-outline',
-    backgroundColor: '#10B981', // Emerald Green
-    accentColor: '#059669',
-  },
-  {
-    id: 'stat-4',
-    title: 'Today Sessions',
-    value: 3,
-    trend: '+8% compared to last week',
-    iconName: 'time-outline',
-    backgroundColor: '#F59E0B', // Amber / Orange
-    accentColor: '#D97706',
-  },
-];
-
-const INITIAL_SCHEDULES: ScheduleItem[] = [
-  {
-    id: 'session-1',
-    classId: 'WP301',
-    subjectName: 'Web Programming',
-    room: 'A3-201',
-    building: 'Building A',
-    startTime: '07:30',
-    endTime: '09:30',
-    timeFormatted: '07:30 - 09:30',
-    checkedInCount: 28,
-    totalCapacity: 32,
-    status: 'ongoing',
-  },
-  {
-    id: 'session-2',
-    classId: 'SE201',
-    subjectName: 'Software Engineering',
-    room: 'A2-105',
-    building: 'Building A',
-    startTime: '08:45',
-    endTime: '11:45',
-    timeFormatted: '08:45 - 11:45',
-    checkedInCount: 0,
-    totalCapacity: 30,
-    status: 'upcoming',
-  },
-  {
-    id: 'session-3',
-    classId: 'DB301',
-    subjectName: 'Database Systems',
-    room: 'B1-401',
-    building: 'Building B',
-    startTime: '13:30',
-    endTime: '15:30',
-    timeFormatted: '13:30 - 15:30',
-    checkedInCount: 0,
-    totalCapacity: 25,
-    status: 'upcoming',
-  },
-];
+import { lecturerDashboardService } from '../../api/services/lecturerDashboardService';
+import { authStorage } from '../../api/storage';
+import { LecturerTodaySessionDto } from '../../api/types/dashboard.types';
 
 const LecturerDashboard: React.FC = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'ongoing' | 'upcoming'>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
+  const [stats, setStats] = useState<StatMetric[]>([
+    {
+      id: 'stat-1',
+      title: 'Assigned Classes',
+      value: '—',
+      trend: 'Assigned sections',
+      iconName: 'school-outline',
+      backgroundColor: '#0D9488',
+      accentColor: '#0F766E',
+    },
+    {
+      id: 'stat-2',
+      title: 'Students',
+      value: '—',
+      trend: 'Enrolled students',
+      iconName: 'people-outline',
+      backgroundColor: '#2563EB',
+      accentColor: '#1D4ED8',
+    },
+    {
+      id: 'stat-3',
+      title: 'Attendance Rate',
+      value: '—',
+      trend: 'Average across classes',
+      iconName: 'checkmark-circle-outline',
+      backgroundColor: '#10B981',
+      accentColor: '#059669',
+    },
+    {
+      id: 'stat-4',
+      title: 'Today Sessions',
+      value: '—',
+      trend: 'Scheduled today',
+      iconName: 'time-outline',
+      backgroundColor: '#F59E0B',
+      accentColor: '#D97706',
+    },
+  ]);
+
+  const [todaySchedules, setTodaySchedules] = useState<ScheduleItem[]>([]);
+
+  const loadDashboardData = async () => {
+    try {
+      const [kpiRes, sessionsRes] = await Promise.allSettled([
+        lecturerDashboardService.getLecturerStats(),
+        lecturerDashboardService.getLecturerTodaySessions(),
+      ]);
+
+      if (kpiRes.status === 'fulfilled') {
+        const kpi = kpiRes.value;
+        setStats([
+          {
+            id: 'stat-1',
+            title: 'Assigned Classes',
+            value: kpi.assignedClasses,
+            trend: `${kpi.assignedClasses} active sections`,
+            iconName: 'school-outline',
+            backgroundColor: '#0D9488',
+            accentColor: '#0F766E',
+          },
+          {
+            id: 'stat-2',
+            title: 'Students',
+            value: kpi.totalStudents,
+            trend: `${kpi.totalStudents} total enrolled`,
+            iconName: 'people-outline',
+            backgroundColor: '#2563EB',
+            accentColor: '#1D4ED8',
+          },
+          {
+            id: 'stat-3',
+            title: 'Attendance Rate',
+            value: `${kpi.averageAttendanceRate}%`,
+            trend: 'Semester average',
+            iconName: 'checkmark-circle-outline',
+            backgroundColor: '#10B981',
+            accentColor: '#059669',
+          },
+          {
+            id: 'stat-4',
+            title: 'Today Sessions',
+            value: kpi.todaySessionsCount,
+            trend: `${kpi.todaySessionsCount} scheduled`,
+            iconName: 'time-outline',
+            backgroundColor: '#F59E0B',
+            accentColor: '#D97706',
+          },
+        ]);
+      }
+
+      if (sessionsRes.status === 'fulfilled') {
+        const mappedSessions: ScheduleItem[] = sessionsRes.value.map((sess) => {
+          let status: SessionStatusType = 'upcoming';
+          if (sess.status === 'ongoing') status = 'ongoing';
+          else if (sess.status === 'completed') status = 'completed';
+          else if (sess.status === 'cancelled') status = 'cancelled';
+
+          return {
+            id: sess.sessionId,
+            classId: sess.subjectCode || 'CLASS',
+            subjectName: sess.subjectName || 'Course',
+            room: sess.room || 'TBD',
+            building: sess.building || 'Campus',
+            startTime: sess.startTime ? sess.startTime.slice(0, 5) : '07:30',
+            endTime: sess.endTime ? sess.endTime.slice(0, 5) : '09:30',
+            timeFormatted: `${sess.startTime ? sess.startTime.slice(0, 5) : '07:30'} - ${
+              sess.endTime ? sess.endTime.slice(0, 5) : '09:30'
+            }`,
+            checkedInCount: sess.checkedInCount ?? 0,
+            totalCapacity: sess.totalEnrolled ?? 0,
+            status,
+          };
+        });
+        setTodaySchedules(mappedSessions);
+      }
+    } catch (e) {
+      console.log('Error loading lecturer dashboard:', e);
+    } finally {
+      setLoading(false);
       setRefreshing(false);
-    }, 800);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadDashboardData();
   }, []);
 
   const filteredSchedules = useMemo(() => {
-    return INITIAL_SCHEDULES.filter((item) => {
+    return todaySchedules.filter((item) => {
       // Filter by status tab
       if (activeFilter !== 'all' && item.status !== activeFilter) {
         return false;
@@ -126,22 +176,33 @@ const LecturerDashboard: React.FC = () => {
         item.room.toLowerCase().includes(q)
       );
     });
-  }, [searchQuery, activeFilter]);
+  }, [todaySchedules, searchQuery, activeFilter]);
 
   const handleAttendanceAction = (item: ScheduleItem) => {
     navigation.navigate('ClassesTab', {
       screen: 'ClassDetail',
-      params: { classId: item.classId },
+      params: { classId: item.classId, sessionId: item.id },
     });
   };
+
+  const currentUser = authStorage.getUser();
+  const lecturerDisplayName = currentUser?.fullName || currentUser?.username || 'Lecturer';
+  const currentDateStr = new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const ongoingCount = todaySchedules.filter((s) => s.status === 'ongoing').length;
+  const upcomingCount = todaySchedules.filter((s) => s.status === 'upcoming').length;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* Top Header */}
       <Header
-        lecturerName="Lecturer LC"
+        lecturerName={lecturerDisplayName}
         role="Lecturer"
-        currentDate="June 12, 2026"
+        currentDate={currentDateStr}
       />
 
       {/* Search Input */}
@@ -166,7 +227,7 @@ const LecturerDashboard: React.FC = () => {
       >
         {/* Stat Cards Grid (2x2) */}
         <View style={styles.statsGrid}>
-          {INITIAL_STATS.map((stat) => (
+          {stats.map((stat) => (
             <View key={stat.id} style={styles.statCol}>
               <StatCard item={stat} />
             </View>
@@ -177,7 +238,7 @@ const LecturerDashboard: React.FC = () => {
         <View style={styles.sectionHeaderRow}>
           <View>
             <Text style={styles.sectionTitle}>Today's Schedule</Text>
-            <Text style={styles.sectionSubtitle}>Live tracking of ongoing classes</Text>
+            <Text style={styles.sectionSubtitle}>Live tracking of ongoing and upcoming classes</Text>
           </View>
         </View>
 
@@ -193,7 +254,7 @@ const LecturerDashboard: React.FC = () => {
                 activeFilter === 'all' && styles.filterTabTextActive,
               ]}
             >
-              All ({INITIAL_SCHEDULES.length})
+              All ({todaySchedules.length})
             </Text>
           </TouchableOpacity>
 
@@ -207,7 +268,7 @@ const LecturerDashboard: React.FC = () => {
                 activeFilter === 'ongoing' && styles.filterTabTextActive,
               ]}
             >
-              Ongoing (1)
+              Ongoing ({ongoingCount})
             </Text>
           </TouchableOpacity>
 
@@ -221,13 +282,18 @@ const LecturerDashboard: React.FC = () => {
                 activeFilter === 'upcoming' && styles.filterTabTextActive,
               ]}
             >
-              Upcoming (2)
+              Upcoming ({upcomingCount})
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Schedule List */}
-        {filteredSchedules.length > 0 ? (
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0D9488" />
+            <Text style={styles.loadingText}>Loading today's schedule...</Text>
+          </View>
+        ) : filteredSchedules.length > 0 ? (
           filteredSchedules.map((schedule) => (
             <ScheduleCard
               key={schedule.id}
@@ -240,7 +306,9 @@ const LecturerDashboard: React.FC = () => {
             <AppIcon name="calendar-outline" size={36} color="#CBD5E1" />
             <Text style={styles.emptyTitle}>No sessions found</Text>
             <Text style={styles.emptySubtitle}>
-              Try adjusting your search query or filter settings.
+              {searchQuery
+                ? 'Try adjusting your search query.'
+                : 'No class sessions scheduled for today.'}
             </Text>
           </View>
         )}
@@ -289,17 +357,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  viewAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: 4,
-  },
-  viewAllText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0D9488',
-  },
   filterTabsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -322,6 +379,17 @@ const styles = StyleSheet.create({
   filterTabTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',

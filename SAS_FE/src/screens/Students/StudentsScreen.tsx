@@ -1,8 +1,18 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import AppIcon from '../../components/Icon/AppIcon';
 import SearchBar from '../../components/SearchBar/SearchBar';
+import { lecturerSectionService } from '../../api/services/lecturerSectionService';
 
 interface StudentItem {
   id: string;
@@ -14,63 +24,96 @@ interface StudentItem {
   status: 'Good' | 'Warning' | 'Critical';
 }
 
-const MOCK_STUDENTS: StudentItem[] = [
-  {
-    id: '21110001',
-    name: 'Nguyễn Văn An',
-    email: 'an.nv@eiu.edu.vn',
-    classCode: 'WP301',
-    avatarInitials: 'NA',
-    attendanceRate: 94,
-    status: 'Good',
-  },
-  {
-    id: '21110002',
-    name: 'Trần Thị Bích',
-    email: 'bich.tb@eiu.edu.vn',
-    classCode: 'WP301',
-    avatarInitials: 'TB',
-    attendanceRate: 88,
-    status: 'Good',
-  },
-  {
-    id: '21110003',
-    name: 'Lê Minh Châu',
-    email: 'chau.lm@eiu.edu.vn',
-    classCode: 'SE201',
-    avatarInitials: 'LC',
-    attendanceRate: 75,
-    status: 'Warning',
-  },
-  {
-    id: '21110004',
-    name: 'Phạm Đức Dũng',
-    email: 'dung.pd@eiu.edu.vn',
-    classCode: 'WP301',
-    avatarInitials: 'PD',
-    attendanceRate: 60,
-    status: 'Critical',
-  },
-  {
-    id: '21110005',
-    name: 'Hoàng Thị Vy',
-    email: 'vy.ht@eiu.edu.vn',
-    classCode: 'DB301',
-    avatarInitials: 'HV',
-    attendanceRate: 98,
-    status: 'Good',
-  },
-];
-
 const StudentsScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filtered = MOCK_STUDENTS.filter(
-    (s) =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.classCode.toLowerCase().includes(searchQuery.toLowerCase())
+  const fetchStudents = async () => {
+    try {
+      // 1. Fetch lecturer's assigned sections
+      const sectionsRes = await lecturerSectionService.listSections({ limit: 20 });
+      const sections = sectionsRes.data || [];
+
+      // 2. Fetch enrolled students for each section in parallel
+      const studentPromises = sections.map(async (sec) => {
+        try {
+          const studentsRes = await lecturerSectionService.getSectionStudents(
+            sec.sectionId,
+            { limit: 100 }
+          );
+          const enrolledList = studentsRes.data || [];
+
+          return enrolledList.map((st) => {
+            const rate = Math.round(st.attendanceRate ?? 100);
+            let status: 'Good' | 'Warning' | 'Critical' = 'Good';
+            if (rate < 65) status = 'Critical';
+            else if (rate < 80) status = 'Warning';
+
+            const initials = (st.fullName || st.username || 'ST')
+              .split(' ')
+              .map((w) => w[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase();
+
+            return {
+              id: st.username || st.studentId.slice(0, 8),
+              name: st.fullName || st.username,
+              email: st.email || `${st.username}@campus.edu.vn`,
+              classCode: sec.subject?.code || 'CLASS',
+              avatarInitials: initials,
+              attendanceRate: rate,
+              status,
+            };
+          });
+        } catch {
+          return [];
+        }
+      });
+
+      const results = await Promise.allSettled(studentPromises);
+      const allStudents: StudentItem[] = [];
+
+      results.forEach((res) => {
+        if (res.status === 'fulfilled') {
+          allStudents.push(...res.value);
+        }
+      });
+
+      // Deduplicate or keep per-class entries
+      setStudents(allStudents);
+    } catch (e) {
+      console.log('Error fetching students directory:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchStudents();
+    }, [])
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchStudents();
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return students;
+    const q = searchQuery.toLowerCase();
+    return students.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q) ||
+        s.classCode.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q)
+    );
+  }, [students, searchQuery]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -85,57 +128,85 @@ const StudentsScreen: React.FC = () => {
         placeholder="Search by student name, ID, class..."
       />
 
-      <ScrollView contentContainerStyle={styles.listContent}>
-        {filtered.map((student) => {
-          const isGood = student.status === 'Good';
-          const isWarn = student.status === 'Warning';
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0D9488"
+            colors={['#0D9488']}
+          />
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0D9488" />
+            <Text style={styles.loadingText}>Loading enrolled students...</Text>
+          </View>
+        ) : filtered.length > 0 ? (
+          filtered.map((student, idx) => {
+            const isGood = student.status === 'Good';
+            const isWarn = student.status === 'Warning';
 
-          return (
-            <View key={student.id} style={styles.card}>
-              <View style={styles.cardLeft}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{student.avatarInitials}</Text>
-                </View>
-
-                <View style={styles.infoCol}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.studentName}>{student.name}</Text>
-                    <Text style={styles.classCode}>{student.classCode}</Text>
+            return (
+              <View key={`${student.id}-${student.classCode}-${idx}`} style={styles.card}>
+                <View style={styles.cardLeft}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{student.avatarInitials}</Text>
                   </View>
-                  <Text style={styles.studentId}>ID: {student.id}</Text>
-                  <Text style={styles.email}>{student.email}</Text>
-                </View>
-              </View>
 
-              <View style={styles.cardRight}>
-                <Text style={styles.rateVal}>{student.attendanceRate}%</Text>
-                <View
-                  style={[
-                    styles.statusTag,
-                    isGood
-                      ? styles.tagGood
-                      : isWarn
-                      ? styles.tagWarn
-                      : styles.tagCritical,
-                  ]}
-                >
-                  <Text
+                  <View style={styles.infoCol}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.studentName}>{student.name}</Text>
+                      <Text style={styles.classCode}>{student.classCode}</Text>
+                    </View>
+                    <Text style={styles.studentId}>ID: {student.id}</Text>
+                    <Text style={styles.email} numberOfLines={1}>{student.email}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardRight}>
+                  <Text style={styles.rateVal}>{student.attendanceRate}%</Text>
+                  <View
                     style={[
-                      styles.tagText,
+                      styles.statusTag,
                       isGood
-                        ? styles.tagTextGood
+                        ? styles.tagGood
                         : isWarn
-                        ? styles.tagTextWarn
-                        : styles.tagTextCritical,
+                        ? styles.tagWarn
+                        : styles.tagCritical,
                     ]}
                   >
-                    {student.status}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.tagText,
+                        isGood
+                          ? styles.tagTextGood
+                          : isWarn
+                          ? styles.tagTextWarn
+                          : styles.tagTextCritical,
+                      ]}
+                    >
+                      {student.status}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          );
-        })}
+            );
+          })
+        ) : (
+          <View style={styles.emptyState}>
+            <AppIcon name="people-outline" size={36} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>No students found</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery
+                ? 'Try adjusting your search query.'
+                : 'No students enrolled in your assigned sections yet.'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -168,6 +239,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 24,
   },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -184,6 +266,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    paddingRight: 8,
   },
   avatar: {
     width: 40,
@@ -251,6 +334,28 @@ const styles = StyleSheet.create({
   tagTextGood: { color: '#15803D' },
   tagTextWarn: { color: '#B45309' },
   tagTextCritical: { color: '#991B1B' },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 10,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    textAlign: 'center',
+  },
 });
 
 export default StudentsScreen;

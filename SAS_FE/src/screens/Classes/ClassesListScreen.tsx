@@ -1,79 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import AppIcon from '../../components/Icon/AppIcon';
 import SearchBar from '../../components/SearchBar/SearchBar';
+import { lecturerSectionService } from '../../api/services/lecturerSectionService';
+import { ClassSectionResponse } from '../../api/types/classSection.types';
 
-interface ClassItem {
-  id: string;
-  classCode: string; // e.g. WP301
-  subjectName: string; // e.g. Web Programming
-  room: string; // e.g. A3-201
-  schedule: string; // e.g. Thứ 3, Thứ 5 (07:30 - 09:30)
+interface FormattedClassItem {
+  id: string; // sectionId
+  classCode: string;
+  subjectName: string;
+  room: string;
+  schedule: string;
   studentCount: number;
-  totalSessions: number;
-  completedSessions: number;
-  attendanceRate: number; // percentage
+  semesterName: string;
   status: 'active' | 'completed';
 }
-
-const MOCK_CLASSES: ClassItem[] = [
-  {
-    id: 'c1',
-    classCode: 'WP301',
-    subjectName: 'Web Programming',
-    room: 'A3-201',
-    schedule: 'Thứ 3, Thứ 5 (07:30 - 09:30)',
-    studentCount: 32,
-    totalSessions: 15,
-    completedSessions: 12,
-    attendanceRate: 91,
-    status: 'active',
-  },
-  {
-    id: 'c2',
-    classCode: 'SE201',
-    subjectName: 'Software Engineering',
-    room: 'A2-105',
-    schedule: 'Thứ 2, Thứ 4 (08:45 - 11:45)',
-    studentCount: 30,
-    totalSessions: 15,
-    completedSessions: 8,
-    attendanceRate: 87,
-    status: 'active',
-  },
-  {
-    id: 'c3',
-    classCode: 'DB301',
-    subjectName: 'Database Systems',
-    room: 'B1-401',
-    schedule: 'Thứ 6 (13:30 - 16:30)',
-    studentCount: 25,
-    totalSessions: 12,
-    completedSessions: 10,
-    attendanceRate: 94,
-    status: 'active',
-  },
-  {
-    id: 'c4',
-    classCode: 'AI401',
-    subjectName: 'Artificial Intelligence',
-    room: 'C2-302',
-    schedule: 'Thứ 3 (13:30 - 16:30)',
-    studentCount: 28,
-    totalSessions: 15,
-    completedSessions: 15,
-    attendanceRate: 96,
-    status: 'completed',
-  },
-];
 
 interface ClassesListScreenProps {
   navigation: any;
@@ -82,17 +33,79 @@ interface ClassesListScreenProps {
 const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'active' | 'completed'>('all');
+  const [classes, setClasses] = useState<FormattedClassItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredClasses = MOCK_CLASSES.filter((c) => {
-    if (filterTab !== 'all' && c.status !== filterTab) return false;
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      c.classCode.toLowerCase().includes(q) ||
-      c.subjectName.toLowerCase().includes(q) ||
-      c.room.toLowerCase().includes(q)
-    );
-  });
+  const fetchSections = async () => {
+    try {
+      const res = await lecturerSectionService.listSections({ limit: 50 });
+      const rawData: ClassSectionResponse[] = res.data || [];
+
+      const formatted: FormattedClassItem[] = rawData.map((sec) => {
+        const schedules = sec.sectionSchedules || [];
+        const rooms = Array.from(
+          new Set(schedules.map((s) => s.roomCode).filter(Boolean))
+        ).join(', ') || 'Room TBD';
+
+        const scheduleFormatted = schedules.length > 0
+          ? schedules
+              .map(
+                (s) =>
+                  `${s.dayOfWeek} (${(s.startTime || '').slice(0, 5)} - ${(s.endTime || '').slice(0, 5)})`
+              )
+              .join(' • ')
+          : 'Schedule TBD';
+
+        const isActive = sec.semester?.isActive !== false;
+
+        return {
+          id: sec.sectionId,
+          classCode: sec.subject?.code || 'SEC',
+          subjectName: sec.subject?.name || 'Class Section',
+          room: rooms,
+          schedule: scheduleFormatted,
+          studentCount: sec._count?.enrollments ?? 0,
+          semesterName: sec.semester?.semesterName || 'Current Semester',
+          status: isActive ? 'active' : 'completed',
+        };
+      });
+
+      setClasses(formatted);
+    } catch (e) {
+      console.log('Error fetching lecturer sections:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSections();
+    }, [])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchSections();
+  }, []);
+
+  const filteredClasses = useMemo(() => {
+    return classes.filter((c) => {
+      if (filterTab !== 'all' && c.status !== filterTab) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        c.classCode.toLowerCase().includes(q) ||
+        c.subjectName.toLowerCase().includes(q) ||
+        c.room.toLowerCase().includes(q)
+      );
+    });
+  }, [classes, filterTab, searchQuery]);
+
+  const activeCount = classes.filter((c) => c.status === 'active').length;
+  const completedCount = classes.filter((c) => c.status === 'completed').length;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -118,7 +131,7 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
           onPress={() => setFilterTab('all')}
         >
           <Text style={[styles.filterText, filterTab === 'all' && styles.filterTextActive]}>
-            All ({MOCK_CLASSES.length})
+            All ({classes.length})
           </Text>
         </TouchableOpacity>
 
@@ -127,7 +140,7 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
           onPress={() => setFilterTab('active')}
         >
           <Text style={[styles.filterText, filterTab === 'active' && styles.filterTextActive]}>
-            Active (3)
+            Active ({activeCount})
           </Text>
         </TouchableOpacity>
 
@@ -136,21 +149,43 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
           onPress={() => setFilterTab('completed')}
         >
           <Text style={[styles.filterText, filterTab === 'completed' && styles.filterTextActive]}>
-            Completed (1)
+            Completed ({completedCount})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Class Cards List */}
-      <ScrollView contentContainerStyle={styles.listContent}>
-        {filteredClasses.map((item) => {
-          const progress = Math.round((item.completedSessions / item.totalSessions) * 100);
-
-          return (
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0D9488"
+            colors={['#0D9488']}
+          />
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0D9488" />
+            <Text style={styles.loadingText}>Loading assigned classes...</Text>
+          </View>
+        ) : filteredClasses.length > 0 ? (
+          filteredClasses.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.card}
-              onPress={() => navigation.navigate('ClassDetail', { classId: item.classCode })}
+              onPress={() =>
+                navigation.navigate('ClassDetail', {
+                  classId: item.id,
+                  classCode: item.classCode,
+                  subjectName: item.subjectName,
+                  room: item.room,
+                  schedule: item.schedule,
+                })
+              }
               activeOpacity={0.85}
             >
               <View style={styles.cardHeader}>
@@ -158,9 +193,20 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
                   <Text style={styles.codeText}>{item.classCode}</Text>
                 </View>
 
-                <View style={styles.rateBadge}>
-                  <AppIcon name="checkmark-circle-outline" size={14} color="#0D9488" />
-                  <Text style={styles.rateText}>{item.attendanceRate}% Avg</Text>
+                <View style={styles.statusBadge}>
+                  <AppIcon
+                    name={item.status === 'active' ? 'checkmark-circle-outline' : 'time-outline'}
+                    size={13}
+                    color={item.status === 'active' ? '#0D9488' : '#64748B'}
+                  />
+                  <Text
+                    style={[
+                      styles.statusBadgeText,
+                      item.status === 'completed' && { color: '#64748B' },
+                    ]}
+                  >
+                    {item.status === 'active' ? 'Active' : 'Completed'}
+                  </Text>
                 </View>
               </View>
 
@@ -180,33 +226,50 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
               <View style={styles.metaRow}>
                 <View style={styles.metaItem}>
                   <AppIcon name="time-outline" size={14} color="#64748B" />
-                  <Text style={styles.metaText}>{item.schedule}</Text>
+                  <Text style={styles.metaText} numberOfLines={1}>
+                    {item.schedule}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.divider} />
 
               <View style={styles.cardFooter}>
-                <View style={styles.progressCol}>
-                  <View style={styles.progressLabelRow}>
-                    <Text style={styles.progressLabel}>Progress</Text>
-                    <Text style={styles.progressValueText}>
-                      {item.completedSessions}/{item.totalSessions} Sessions ({progress}%)
-                    </Text>
-                  </View>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${progress}%` }]} />
-                  </View>
+                <View style={styles.semesterTag}>
+                  <AppIcon name="calendar-outline" size={12} color="#0D9488" />
+                  <Text style={styles.semesterText}>{item.semesterName}</Text>
                 </View>
 
-                <TouchableOpacity style={styles.detailsBtn} activeOpacity={0.7}>
-                  <Text style={styles.detailsBtnText}>View Details</Text>
+                <TouchableOpacity
+                  style={styles.detailsBtn}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate('ClassDetail', {
+                      classId: item.id,
+                      classCode: item.classCode,
+                      subjectName: item.subjectName,
+                      room: item.room,
+                      schedule: item.schedule,
+                    })
+                  }
+                >
+                  <Text style={styles.detailsBtnText}>View Sessions & Attendance</Text>
                   <AppIcon name="chevron-forward-outline" size={14} color="#0D9488" />
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
-          );
-        })}
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <AppIcon name="school-outline" size={36} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>No classes found</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery
+                ? 'Try adjusting your search query.'
+                : 'You have not been assigned to any class sections yet.'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -263,6 +326,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 24,
   },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -293,7 +367,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F766E',
   },
-  rateBadge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -302,7 +376,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  rateText: {
+  statusBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#0D9488',
@@ -323,6 +397,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flex: 1,
   },
   metaText: {
     fontSize: 12,
@@ -339,35 +414,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  progressCol: {
-    flex: 1,
-  },
-  progressLabelRow: {
+  semesterTag: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  progressLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-  },
-  progressValueText: {
+  semesterText: {
     fontSize: 11,
     fontWeight: '600',
     color: '#475569',
-  },
-  progressTrack: {
-    height: 5,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 2.5,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#0D9488',
-    borderRadius: 2.5,
   },
   detailsBtn: {
     flexDirection: 'row',
@@ -378,6 +437,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#0D9488',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 10,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });
 

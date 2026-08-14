@@ -1,62 +1,87 @@
 import apiClient from '../client';
 import { API_ENDPOINTS } from '../endpoints';
 import { authStorage } from '../storage';
-import {
-  LoginRequest,
-  LoginResponse,
-  CurrentUserResponse,
-} from '../types/auth.types';
-import { ApiMessageResponse } from '../types/common.types';
+import { LoginRequest, LoginResponse, CurrentUserResponse } from '../types/auth.types';
 
 export const authService = {
   /**
-   * Login user with username and password.
+   * Authenticate user credentials with Backend NestJS
+   * POST /auth/login
    */
-  async login(payload: LoginRequest): Promise<LoginResponse> {
+  login: async (payload: LoginRequest): Promise<LoginResponse> => {
     const response = await apiClient.post<LoginResponse>(
       API_ENDPOINTS.AUTH.LOGIN,
-      payload
+      {
+        username: payload.username,
+        password: payload.password,
+      }
     );
 
-    // Save session in auth storage
-    if (response.data?.userId && response.data?.role) {
-      authStorage.setUserSession(response.data.userId, response.data.role);
-    }
+    const data = response.data;
 
-    return response.data;
-  },
-
-  /**
-   * Fetch currently authenticated user profile.
-   */
-  async getMe(): Promise<CurrentUserResponse> {
-    const response = await apiClient.get<CurrentUserResponse>(
-      API_ENDPOINTS.AUTH.ME
-    );
-    return response.data;
-  },
-
-  /**
-   * Log out currently authenticated session.
-   */
-  async logout(): Promise<ApiMessageResponse> {
+    // Extract access_token from Set-Cookie headers if present
     try {
-      const response = await apiClient.post<ApiMessageResponse>(
-        API_ENDPOINTS.AUTH.LOGOUT
-      );
+      const setCookie = response.headers['set-cookie'];
+      if (setCookie) {
+        const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie);
+        const match = cookieStr.match(/access_token=([^;]+)/);
+        if (match?.[1]) {
+          authStorage.setAccessToken(match[1]);
+        }
+      }
+    } catch (e) {
+      console.log('Error parsing auth cookies:', e);
+    }
+
+    if ((data as any)?.access_token) {
+      authStorage.setAccessToken((data as any).access_token);
+    }
+
+    if (data?.userId) {
+      authStorage.setUserSession({
+        userId: data.userId,
+        username: payload.username,
+        role: data.role,
+        hasRegisteredFace: Boolean(data.hasRegisteredFace),
+      });
+    }
+
+    return data;
+  },
+
+  /**
+   * Terminate active user session from backend
+   * POST /auth/logout
+   */
+  logout: async (): Promise<void> => {
+    try {
+      await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT);
+    } catch (e) {
+      console.log('Logout API error or offline:', e);
+    } finally {
       authStorage.clear();
-      return response.data;
-    } catch (error) {
-      authStorage.clear();
-      throw error;
     }
   },
 
   /**
-   * Refresh JWT token.
+   * Get current authenticated user profile
+   * GET /auth/me
    */
-  async refreshToken(): Promise<void> {
-    await apiClient.post(API_ENDPOINTS.AUTH.REFRESH);
+  getMe: async (): Promise<CurrentUserResponse> => {
+    const response = await apiClient.get<CurrentUserResponse>(API_ENDPOINTS.AUTH.ME);
+    const data = response.data;
+    if (data?.userId) {
+      authStorage.setUserSession({
+        userId: data.userId,
+        username: data.username,
+        fullName: data.fullName,
+        email: data.email,
+        role: data.role,
+        avatarUrl: data.avatarUrl,
+        hasRegisteredFace: Boolean(data.hasRegisteredFace),
+      });
+    }
+    return data;
   },
 };
 

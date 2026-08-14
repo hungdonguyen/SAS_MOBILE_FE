@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,203 +6,253 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppIcon from '../../components/Icon/AppIcon';
 import SearchBar from '../../components/SearchBar/SearchBar';
 import AttendanceStatusPicker from '../../components/AttendanceStatusPicker/AttendanceStatusPicker';
+import { AttendanceStatus } from '../../types/classDetails';
+import { lecturerSectionService } from '../../api/services/lecturerSectionService';
+import { lecturerAttendanceService } from '../../api/services/lecturerAttendanceService';
 import {
-  ClassDetailsData,
-  ClassSession,
-  StudentAttendanceRecord,
-  AttendanceStatus,
-} from '../../types/classDetails';
-
-// Initial Mock Data reflecting the provided reference image (image_input_0.png)
-const MOCK_CLASS_DETAILS: ClassDetailsData = {
-  classId: 'WP301',
-  subjectName: 'Web Programming',
-  room: 'A3-201',
-  scheduleInfo: 'Thứ 3, Thứ 5 • 07:30 - 09:30',
-  totalEnrolled: 32,
-  sessions: [
-    {
-      id: 'sess-1',
-      date: '2026-08-12',
-      dayOfWeek: 'Thứ 5',
-      timeRange: '07:30 - 09:30',
-      presentCount: 28,
-      lateCount: 2,
-      absentCount: 2,
-      excusedCount: 0,
-      attendanceRate: 88,
-    },
-    {
-      id: 'sess-2',
-      date: '2026-05-10',
-      dayOfWeek: 'Thứ 3',
-      timeRange: '07:30 - 09:30',
-      presentCount: 30,
-      lateCount: 1,
-      absentCount: 1,
-      excusedCount: 0,
-      attendanceRate: 94,
-    },
-    {
-      id: 'sess-3',
-      date: '2026-05-05',
-      dayOfWeek: 'Thứ 5',
-      timeRange: '07:30 - 09:30',
-      presentCount: 29,
-      lateCount: 0,
-      absentCount: 3,
-      excusedCount: 0,
-      attendanceRate: 91,
-    },
-    {
-      id: 'sess-4',
-      date: '2026-05-03',
-      dayOfWeek: 'Thứ 3',
-      timeRange: '07:30 - 09:30',
-      presentCount: 31,
-      lateCount: 1,
-      absentCount: 0,
-      excusedCount: 0,
-      attendanceRate: 97,
-    },
-    {
-      id: 'sess-5',
-      date: '2026-05-29',
-      dayOfWeek: 'Thứ 5',
-      timeRange: '07:30 - 09:30',
-      presentCount: 27,
-      lateCount: 3,
-      absentCount: 2,
-      excusedCount: 0,
-      attendanceRate: 84,
-    },
-  ],
-  students: [
-    {
-      id: '21110001',
-      studentName: 'Nguyễn Văn An',
-      email: 'an.nv@eiu.edu.vn',
-      avatarInitials: 'NA',
-      device: 'iPhone 15',
-      checkInTime: '07:32',
-      method: 'AI',
-      status: 'present',
-    },
-    {
-      id: '21110002',
-      studentName: 'Trần Thị Bích',
-      email: 'bich.tb@eiu.edu.vn',
-      avatarInitials: 'TB',
-      device: 'Samsung S24',
-      checkInTime: '07:28',
-      method: 'AI',
-      status: 'present',
-    },
-    {
-      id: '21110003',
-      studentName: 'Lê Minh Châu',
-      email: 'chau.lm@eiu.edu.vn',
-      avatarInitials: 'LC',
-      device: 'Pixel 8',
-      checkInTime: '07:45',
-      method: 'AI',
-      status: 'late',
-    },
-    {
-      id: '21110004',
-      studentName: 'Phạm Đức Dũng',
-      email: 'dung.pd@eiu.edu.vn',
-      avatarInitials: 'PD',
-      device: '—',
-      checkInTime: '—',
-      method: '—',
-      status: 'absent',
-    },
-    {
-      id: '21110005',
-      studentName: 'Hoàng Thị Vy',
-      email: 'vy.ht@eiu.edu.vn',
-      avatarInitials: 'HV',
-      device: 'iPhone 14',
-      checkInTime: '07:30',
-      method: 'AI',
-      status: 'present',
-    },
-    {
-      id: '21110006',
-      studentName: 'Võ Quốc Phong',
-      email: 'phong.vq@eiu.edu.vn',
-      avatarInitials: 'VP',
-      device: 'Xiaomi 14',
-      checkInTime: '07:35',
-      method: 'AI',
-      status: 'present',
-    },
-    {
-      id: '21110007',
-      studentName: 'Ngô Thanh Tâm',
-      email: 'tam.nt@eiu.edu.vn',
-      avatarInitials: 'NT',
-      device: '—',
-      checkInTime: '—',
-      method: '—',
-      status: 'absent',
-    },
-    {
-      id: '21110008',
-      studentName: 'Đỗ Hồng Hạnh',
-      email: 'hanh.dh@eiu.edu.vn',
-      avatarInitials: 'DH',
-      device: 'iPhone 15 Pro',
-      checkInTime: '07:31',
-      method: 'AI',
-      status: 'present',
-    },
-    {
-      id: '21110009',
-      studentName: 'Bùi Anh Tuấn',
-      email: 'tuan.ba@eiu.edu.vn',
-      avatarInitials: 'BT',
-      device: 'Samsung A54',
-      checkInTime: '07:50',
-      method: 'Manual',
-      status: 'late',
-    },
-    {
-      id: '21110010',
-      studentName: 'Lý Thị Mai',
-      email: 'mai.lt@eiu.edu.vn',
-      avatarInitials: 'LM',
-      device: 'OPPO Reno',
-      checkInTime: '07:29',
-      method: 'AI',
-      status: 'present',
-    },
-  ],
-};
+  ClassSectionDetailResponse,
+  ClassSessionDto,
+} from '../../api/types/classSection.types';
+import { SessionAttendanceRecordDto } from '../../api/types/attendance.types';
 
 interface ClassDetailScreenProps {
   navigation: any;
   route?: any;
 }
 
+interface LocalStudentItem {
+  id: string; // studentId (UUID or student ID)
+  attendanceId?: string;
+  studentName: string;
+  email: string;
+  avatarInitials: string;
+  device: string;
+  checkInTime: string;
+  method: 'AI' | 'Manual' | 'QRCode' | 'NFC' | '—';
+  status: AttendanceStatus;
+  isModified?: boolean;
+}
+
 const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route }) => {
-  const classData = MOCK_CLASS_DETAILS;
-  const classId = route?.params?.classId || classData.classId;
+  const initialClassId = route?.params?.classId || 'WP301';
+  const initialClassCode = route?.params?.classCode || 'WP301';
+  const initialSubjectName = route?.params?.subjectName || 'Course Details';
+  const initialRoom = route?.params?.room || 'Campus Room';
+  const initialSchedule = route?.params?.schedule || 'Scheduled Time';
+  const targetSessionId = route?.params?.sessionId;
 
-  const [selectedSessionId, setSelectedSessionId] = useState<string>('sess-1');
+  const [sectionId, setSectionId] = useState<string>(initialClassId);
+  const [sectionDetail, setSectionDetail] = useState<ClassSectionDetailResponse | null>(null);
+  const [sessions, setSessions] = useState<ClassSessionDto[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>(targetSessionId || '');
+  const [students, setStudents] = useState<LocalStudentItem[]>([]);
+  const [originalStudents, setOriginalStudents] = useState<LocalStudentItem[]>([]);
+
+  const [summary, setSummary] = useState({
+    enrolledCount: 0,
+    presentCount: 0,
+    lateCount: 0,
+    absentCount: 0,
+    excusedCount: 0,
+    attendanceRate: 0,
+  });
+
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [students, setStudents] = useState<StudentAttendanceRecord[]>(classData.students);
+  const [loadingSection, setLoadingSection] = useState<boolean>(true);
+  const [loadingAttendance, setLoadingAttendance] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const selectedSession = useMemo(() => {
-    return classData.sessions.find((s) => s.id === selectedSessionId) || classData.sessions[0];
-  }, [selectedSessionId]);
+  // ── Step 1: Load Class Section Metadata & Sessions List ─────────────────────
+  const loadSectionAndSessions = async () => {
+    try {
+      let resolvedId = sectionId;
+
+      // If classId passed is a code (not a UUID), resolve UUID first
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        resolvedId
+      );
+
+      if (!isUUID) {
+        const sectionsRes = await lecturerSectionService.listSections({
+          q: initialClassCode,
+          limit: 1,
+        });
+        if (sectionsRes.data && sectionsRes.data.length > 0) {
+          resolvedId = sectionsRes.data[0].sectionId;
+          setSectionId(resolvedId);
+        }
+      }
+
+      const [detailRes, sessionsRes] = await Promise.allSettled([
+        lecturerSectionService.getSectionById(resolvedId),
+        lecturerSectionService.getSectionSessions(resolvedId, { limit: 30 }),
+      ]);
+
+      if (detailRes.status === 'fulfilled') {
+        setSectionDetail(detailRes.value);
+      }
+
+      if (sessionsRes.status === 'fulfilled') {
+        const sessList = sessionsRes.value.data || [];
+        setSessions(sessList);
+
+        // Pick selected session
+        if (sessList.length > 0) {
+          const match = targetSessionId
+            ? sessList.find((s) => s.sessionId === targetSessionId)
+            : sessList[0];
+          const activeSessId = match ? match.sessionId : sessList[0].sessionId;
+          setSelectedSessionId(activeSessId);
+          loadSessionRoster(activeSessId);
+        }
+      }
+    } catch (e) {
+      console.log('Error loading section details & sessions:', e);
+    } finally {
+      setLoadingSection(false);
+      setRefreshing(false);
+    }
+  };
+
+  // ── Step 2: Load Session Attendance Roster ──────────────────────────────────
+  const loadSessionRoster = async (sessionId: string) => {
+    if (!sessionId) return;
+    setLoadingAttendance(true);
+    try {
+      const rosterRes = await lecturerAttendanceService.getSessionAttendance(sessionId);
+
+      if (rosterRes) {
+        setSummary({
+          enrolledCount: rosterRes.summary?.enrolledCount ?? 0,
+          presentCount: rosterRes.summary?.presentCount ?? 0,
+          lateCount: rosterRes.summary?.lateCount ?? 0,
+          absentCount: rosterRes.summary?.absentCount ?? 0,
+          excusedCount: rosterRes.summary?.excusedCount ?? 0,
+          attendanceRate: rosterRes.summary?.attendanceRate ?? 0,
+        });
+
+        const mapped: LocalStudentItem[] = (rosterRes.data || []).map((rec: SessionAttendanceRecordDto) => {
+          let method: 'AI' | 'Manual' | 'QRCode' | 'NFC' | '—' = '—';
+          if (rec.checkInMethod === 'SELF_CHECKIN' || rec.checkInMethod === 'AI') method = 'AI';
+          else if (rec.checkInMethod === 'MANUAL') method = 'Manual';
+
+          let status: AttendanceStatus = 'absent';
+          if (rec.status === 'present' || rec.status === 'late' || rec.status === 'excused') {
+            status = rec.status;
+          }
+
+          const initials = (rec.fullName || rec.username || 'ST')
+            .split(' ')
+            .map((w) => w[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase();
+
+          const timeFormatted = rec.checkedInAt
+            ? new Date(rec.checkedInAt).toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : '—';
+
+          return {
+            id: rec.studentId,
+            attendanceId: rec.attendanceId,
+            studentName: rec.fullName || rec.username,
+            email: rec.email || `${rec.username}@campus.edu.vn`,
+            avatarInitials: initials,
+            device: rec.deviceInfo || '—',
+            checkInTime: timeFormatted,
+            method,
+            status,
+            isModified: false,
+          };
+        });
+
+        setStudents(mapped);
+        setOriginalStudents(mapped);
+      }
+    } catch (e) {
+      console.log('Error loading session roster:', e);
+    } finally {
+      setLoadingAttendance(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSectionAndSessions();
+  }, [sectionId]);
+
+  const handleSelectSession = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    loadSessionRoster(sessionId);
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadSectionAndSessions();
+  }, [sectionId]);
+
+  // ── Step 3: Handle Status Changes Locally ───────────────────────────────────
+  const handleStatusChange = (studentId: string, newStatus: AttendanceStatus) => {
+    setStudents((prev) =>
+      prev.map((item) =>
+        item.id === studentId ? { ...item, status: newStatus, isModified: true } : item
+      )
+    );
+  };
+
+  const hasUnsavedChanges = useMemo(() => {
+    return students.some((s) => s.isModified);
+  }, [students]);
+
+  // ── Step 4: Batch Save Changes to Backend ───────────────────────────────────
+  const handleSaveChanges = async () => {
+    if (!selectedSessionId) {
+      Alert.alert('Notice', 'No active session selected.');
+      return;
+    }
+
+    const modified = students.filter((s) => s.isModified);
+    if (modified.length === 0) {
+      Alert.alert('Info', 'No attendance modifications to save.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const recordsToOverride = modified.map((s) => ({
+        studentId: s.id,
+        status: s.status,
+        reason: 'Lecturer manual adjustment from mobile app',
+      }));
+
+      await lecturerAttendanceService.batchOverrideAttendance(selectedSessionId, {
+        records: recordsToOverride,
+      });
+
+      Alert.alert(
+        'Save Success',
+        `Successfully updated attendance records for ${modified.length} student(s).`
+      );
+
+      // Re-fetch session roster to reflect updated metrics
+      await loadSessionRoster(selectedSessionId);
+    } catch (err: any) {
+      console.log('Error saving attendance changes:', err);
+      Alert.alert('Save Failed', err.message || 'Could not save attendance updates.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
@@ -216,15 +266,21 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
     );
   }, [students, searchQuery]);
 
-  const handleStatusChange = (studentId: string, newStatus: AttendanceStatus) => {
-    setStudents((prev) =>
-      prev.map((item) => (item.id === studentId ? { ...item, status: newStatus } : item))
-    );
-  };
-
-  const handleSaveChanges = () => {
-    Alert.alert('Save Changes', 'Attendance updates saved successfully for ' + selectedSession.date + '.');
-  };
+  const displayClassCode =
+    sectionDetail?.subject?.code || initialClassCode || 'CLASS';
+  const displaySubjectName =
+    sectionDetail?.subject?.name || initialSubjectName || 'Course Details';
+  const displayRoom =
+    sectionDetail?.schedules?.[0]?.roomCode || initialRoom || 'Room TBD';
+  const displaySchedule =
+    sectionDetail?.schedules && sectionDetail.schedules.length > 0
+      ? sectionDetail.schedules
+          .map(
+            (s) =>
+              `${s.dayOfWeek} (${(s.startTime || '').slice(0, 5)} - ${(s.endTime || '').slice(0, 5)})`
+          )
+          .join(' • ')
+      : initialSchedule;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -236,26 +292,40 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <AppIcon name="chevron-forward-outline" size={20} color="#0F172A" style={{ transform: [{ rotate: '180deg' }] }} />
+            <AppIcon
+              name="chevron-forward-outline"
+              size={20}
+              color="#0F172A"
+              style={{ transform: [{ rotate: '180deg' }] }}
+            />
           </TouchableOpacity>
 
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.classTitle}>
-              Class details: <Text style={styles.classIdText}>{classId}</Text>
+              Class: <Text style={styles.classIdText}>{displayClassCode}</Text>
             </Text>
-            <Text style={styles.classMetaSubtitle}>
-              {classData.subjectName} • {classData.room} • {classData.scheduleInfo}
+            <Text style={styles.classMetaSubtitle} numberOfLines={1}>
+              {displaySubjectName} • {displayRoom}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity
-          style={styles.saveChangesBtn}
+          style={[styles.saveChangesBtn, saving && { opacity: 0.7 }]}
           onPress={handleSaveChanges}
           activeOpacity={0.85}
+          disabled={saving}
         >
-          <AppIcon name="checkmark-circle-outline" size={14} color="#FFFFFF" />
-          <Text style={styles.saveChangesText}>Save changes</Text>
+          {saving ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <AppIcon name="checkmark-circle-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.saveChangesText}>
+                {hasUnsavedChanges ? 'Save changes *' : 'Save changes'}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -266,8 +336,20 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
         placeholder="Search student, ID, device..."
       />
 
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Session List Section */}
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0D9488"
+            colors={['#0D9488']}
+          />
+        }
+      >
+        {/* Session List Horizontal Section */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View>
@@ -276,62 +358,83 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
             </View>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.sessionsHorizontalList}
-          >
-            {classData.sessions.map((sess) => {
-              const isSelected = sess.id === selectedSessionId;
-              return (
-                <TouchableOpacity
-                  key={sess.id}
-                  style={[
-                    styles.sessionCard,
-                    isSelected && styles.sessionCardSelected,
-                  ]}
-                  onPress={() => setSelectedSessionId(sess.id)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.sessionDateRow}>
-                    <AppIcon
-                      name="calendar-outline"
-                      size={15}
-                      color={isSelected ? '#0D9488' : '#64748B'}
-                    />
-                    <Text
-                      style={[
-                        styles.sessionDateText,
-                        isSelected && styles.sessionDateTextSelected,
-                      ]}
-                    >
-                      {sess.date}
+          {loadingSection ? (
+            <ActivityIndicator color="#0D9488" style={{ paddingVertical: 20 }} />
+          ) : sessions.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sessionsHorizontalList}
+            >
+              {sessions.map((sess) => {
+                const isSelected = sess.sessionId === selectedSessionId;
+                const formattedDate = sess.sessionDate
+                  ? new Date(sess.sessionDate).toISOString().slice(0, 10)
+                  : 'Date TBD';
+
+                return (
+                  <TouchableOpacity
+                    key={sess.sessionId}
+                    style={[
+                      styles.sessionCard,
+                      isSelected && styles.sessionCardSelected,
+                    ]}
+                    onPress={() => handleSelectSession(sess.sessionId)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.sessionDateRow}>
+                      <AppIcon
+                        name="calendar-outline"
+                        size={15}
+                        color={isSelected ? '#0D9488' : '#64748B'}
+                      />
+                      <Text
+                        style={[
+                          styles.sessionDateText,
+                          isSelected && styles.sessionDateTextSelected,
+                        ]}
+                      >
+                        {formattedDate}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.sessionMetaText}>
+                      Status: {sess.sessionStatus}
                     </Text>
-                  </View>
-                  <Text style={styles.sessionMetaText}>
-                    {sess.dayOfWeek} • {sess.timeRange}
-                  </Text>
 
-                  <View style={styles.sessionStatsRow}>
-                    <View style={styles.statMiniItem}>
-                      <Text style={styles.statMiniIcon}>👤</Text>
-                      <Text style={styles.statMiniVal}>{sess.presentCount}</Text>
-                    </View>
-                    <View style={styles.statMiniItem}>
-                      <Text style={styles.statMiniIcon}>⚠️</Text>
-                      <Text style={styles.statMiniVal}>{sess.lateCount}</Text>
-                    </View>
-                    <View style={styles.statMiniItem}>
-                      <Text style={styles.statMiniIcon}>🚫</Text>
-                      <Text style={styles.statMiniVal}>{sess.absentCount}</Text>
-                    </View>
+                    <View style={styles.sessionStatsRow}>
+                      <View style={styles.statMiniItem}>
+                        <Text style={styles.statMiniIcon}>👤</Text>
+                        <Text style={styles.statMiniVal}>
+                          {sess.attendanceSummary?.presentCount ?? 0}
+                        </Text>
+                      </View>
+                      <View style={styles.statMiniItem}>
+                        <Text style={styles.statMiniIcon}>⚠️</Text>
+                        <Text style={styles.statMiniVal}>
+                          {sess.attendanceSummary?.lateCount ?? 0}
+                        </Text>
+                      </View>
+                      <View style={styles.statMiniItem}>
+                        <Text style={styles.statMiniIcon}>🚫</Text>
+                        <Text style={styles.statMiniVal}>
+                          {sess.attendanceSummary?.absentCount ?? 0}
+                        </Text>
+                      </View>
 
-                    <Text style={styles.sessionRateBadge}>{sess.attendanceRate}%</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                      <Text style={styles.sessionRateBadge}>
+                        {sess.attendanceSummary?.attendanceRate ?? 0}%
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <Text style={styles.noSessionsText}>
+              No sessions generated for this class section yet.
+            </Text>
+          )}
         </View>
 
         {/* Attendance Summary Card */}
@@ -348,11 +451,23 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                 <View style={[styles.dotIndicator, { backgroundColor: '#10B981' }]} />
                 <Text style={styles.metricLabel}>Present</Text>
               </View>
-              <Text style={styles.metricVal}>145</Text>
+              <Text style={styles.metricVal}>{summary.presentCount}</Text>
               <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '91%', backgroundColor: '#10B981' }]} />
+                <View
+                  style={[
+                    styles.barFill,
+                    {
+                      width: `${summary.enrolledCount > 0 ? (summary.presentCount / summary.enrolledCount) * 100 : 0}%`,
+                      backgroundColor: '#10B981',
+                    },
+                  ]}
+                />
               </View>
-              <Text style={styles.metricPercent}>91%</Text>
+              <Text style={styles.metricPercent}>
+                {summary.enrolledCount > 0
+                  ? Math.round((summary.presentCount / summary.enrolledCount) * 100)
+                  : 0}%
+              </Text>
             </View>
 
             {/* Late Metric */}
@@ -361,11 +476,23 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                 <View style={[styles.dotIndicator, { backgroundColor: '#F59E0B' }]} />
                 <Text style={styles.metricLabel}>Late</Text>
               </View>
-              <Text style={styles.metricVal}>7</Text>
+              <Text style={styles.metricVal}>{summary.lateCount}</Text>
               <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '4%', backgroundColor: '#F59E0B' }]} />
+                <View
+                  style={[
+                    styles.barFill,
+                    {
+                      width: `${summary.enrolledCount > 0 ? (summary.lateCount / summary.enrolledCount) * 100 : 0}%`,
+                      backgroundColor: '#F59E0B',
+                    },
+                  ]}
+                />
               </View>
-              <Text style={styles.metricPercent}>4%</Text>
+              <Text style={styles.metricPercent}>
+                {summary.enrolledCount > 0
+                  ? Math.round((summary.lateCount / summary.enrolledCount) * 100)
+                  : 0}%
+              </Text>
             </View>
 
             {/* Absent Metric */}
@@ -374,11 +501,23 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                 <View style={[styles.dotIndicator, { backgroundColor: '#EF4444' }]} />
                 <Text style={styles.metricLabel}>Absent</Text>
               </View>
-              <Text style={styles.metricVal}>8</Text>
+              <Text style={styles.metricVal}>{summary.absentCount}</Text>
               <View style={styles.barTrack}>
-                <View style={[styles.barFill, { width: '5%', backgroundColor: '#EF4444' }]} />
+                <View
+                  style={[
+                    styles.barFill,
+                    {
+                      width: `${summary.enrolledCount > 0 ? (summary.absentCount / summary.enrolledCount) * 100 : 0}%`,
+                      backgroundColor: '#EF4444',
+                    },
+                  ]}
+                />
               </View>
-              <Text style={styles.metricPercent}>5%</Text>
+              <Text style={styles.metricPercent}>
+                {summary.enrolledCount > 0
+                  ? Math.round((summary.absentCount / summary.enrolledCount) * 100)
+                  : 0}%
+              </Text>
             </View>
           </View>
         </View>
@@ -388,18 +527,29 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
           <Text style={styles.studentsHeaderTitle}>
             Student List ({filteredStudents.length})
           </Text>
-          <Text style={styles.sessionActiveDateLabel}>
-            Session: {selectedSession.date}
-          </Text>
+          {hasUnsavedChanges && (
+            <Text style={styles.unsavedBadge}>Unsaved changes</Text>
+          )}
         </View>
 
-        {filteredStudents.length > 0 ? (
+        {loadingAttendance ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0D9488" />
+            <Text style={styles.loadingText}>Loading student attendance records...</Text>
+          </View>
+        ) : filteredStudents.length > 0 ? (
           filteredStudents.map((student) => {
             const isAI = student.method === 'AI';
             const isManual = student.method === 'Manual';
 
             return (
-              <View key={student.id} style={styles.studentCard}>
+              <View
+                key={student.id}
+                style={[
+                  styles.studentCard,
+                  student.isModified && styles.studentCardModified,
+                ]}
+              >
                 {/* Student Top Row: Avatar, Name, ID */}
                 <View style={styles.studentMainRow}>
                   <View style={styles.avatarCircle}>
@@ -409,7 +559,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                   <View style={styles.studentInfoCol}>
                     <View style={styles.nameIdRow}>
                       <Text style={styles.studentName}>{student.studentName}</Text>
-                      <Text style={styles.studentIdBadge}>{student.id}</Text>
+                      <Text style={styles.studentIdBadge}>{student.id.slice(0, 8)}</Text>
                     </View>
                     <Text style={styles.studentEmail}>{student.email}</Text>
                   </View>
@@ -419,7 +569,9 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                 <View style={styles.studentMetaRow}>
                   <View style={styles.metaSubItem}>
                     <Text style={styles.metaLabel}>Device:</Text>
-                    <Text style={styles.metaValue}>{student.device}</Text>
+                    <Text style={styles.metaValue} numberOfLines={1}>
+                      {student.device}
+                    </Text>
                   </View>
 
                   <View style={styles.metaSubItem}>
@@ -447,7 +599,9 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                 <View style={styles.statusPickerWrapper}>
                   <AttendanceStatusPicker
                     currentStatus={student.status}
-                    onStatusChange={(newStatus) => handleStatusChange(student.id, newStatus)}
+                    onStatusChange={(newStatus) =>
+                      handleStatusChange(student.id, newStatus)
+                    }
                   />
                 </View>
               </View>
@@ -456,7 +610,11 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
         ) : (
           <View style={styles.emptyContainer}>
             <AppIcon name="people-outline" size={32} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>No students match "{searchQuery}"</Text>
+            <Text style={styles.emptyTitle}>
+              {searchQuery
+                ? `No students match "${searchQuery}"`
+                : 'No student attendance records for this session.'}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -616,6 +774,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0D9488',
   },
+  noSessionsText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    paddingVertical: 12,
+    textAlign: 'center',
+  },
   summaryCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -638,7 +802,6 @@ const styles = StyleSheet.create({
   summaryMetricsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 14,
   },
   metricBox: {
     flex: 1,
@@ -687,42 +850,6 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'right',
   },
-  exportActionRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  excelBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0D9488',
-    paddingVertical: 9,
-    borderRadius: 10,
-    gap: 6,
-  },
-  excelBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  pdfBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#0D9488',
-    gap: 6,
-  },
-  pdfBtnText: {
-    color: '#0D9488',
-    fontSize: 12,
-    fontWeight: '700',
-  },
   studentsHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -734,10 +861,24 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
   },
-  sessionActiveDateLabel: {
+  unsavedBadge: {
     fontSize: 11,
+    color: '#D97706',
+    fontWeight: '700',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
     color: '#64748B',
-    fontWeight: '600',
   },
   studentCard: {
     backgroundColor: '#FFFFFF',
@@ -746,6 +887,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  studentCardModified: {
+    borderColor: '#0D9488',
+    borderWidth: 1.5,
   },
   studentMainRow: {
     flexDirection: 'row',

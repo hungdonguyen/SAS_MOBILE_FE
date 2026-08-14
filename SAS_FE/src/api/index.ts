@@ -8,9 +8,14 @@ export * from './types/user.types';
 export * from './types/room.types';
 export * from './types/classSection.types';
 export * from './types/dashboard.types';
+export * from './types/attendance.types';
 
 export * from './services/authService';
 export * from './services/userService';
 export * from './services/roomService';
 export * from './services/classSectionService';
 export * from './services/dashboardService';
+export * from './services/lecturerDashboardService';
+export * from './services/lecturerSectionService';
+export * from './services/lecturerAttendanceService';
+export * from './services/disputeService';

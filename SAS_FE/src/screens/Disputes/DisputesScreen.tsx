@@ -1,63 +1,57 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppIcon from '../../components/Icon/AppIcon';
-
-interface DisputeItem {
-  id: string;
-  studentName: string;
-  studentId: string;
-  classCode: string;
-  sessionDate: string;
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected';
-  submittedAt: string;
-}
-
-const MOCK_DISPUTES: DisputeItem[] = [
-  {
-    id: 'd1',
-    studentName: 'Lê Minh Châu',
-    studentId: '21110003',
-    classCode: 'WP301',
-    sessionDate: '2026-08-12',
-    reason: 'Camera recognition missed my check-in due to low light at room A3-201.',
-    status: 'pending',
-    submittedAt: '2026-08-12 10:15',
-  },
-  {
-    id: 'd2',
-    studentName: 'Phạm Đức Dũng',
-    studentId: '21110004',
-    classCode: 'SE201',
-    sessionDate: '2026-08-10',
-    reason: 'Medical appointment letter attached. Requesting excused absence.',
-    status: 'pending',
-    submittedAt: '2026-08-10 14:30',
-  },
-  {
-    id: 'd3',
-    studentName: 'Bùi Anh Tuấn',
-    studentId: '21110009',
-    classCode: 'WP301',
-    sessionDate: '2026-08-05',
-    reason: 'Device battery died right before manual entry window closed.',
-    status: 'approved',
-    submittedAt: '2026-08-05 09:40',
-  },
-];
+import { disputeService, DisputeItem } from '../../api/services/disputeService';
 
 const DisputesScreen: React.FC = () => {
-  const [disputes, setDisputes] = useState<DisputeItem[]>(MOCK_DISPUTES);
+  const [disputes, setDisputes] = useState<DisputeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleAction = (id: string, newStatus: 'approved' | 'rejected') => {
-    setDisputes((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
-    );
-    Alert.alert(
-      newStatus === 'approved' ? 'Dispute Approved' : 'Dispute Rejected',
-      `Attendance dispute status updated.`
-    );
+  const fetchDisputes = async () => {
+    try {
+      const data = await disputeService.getDisputes();
+      setDisputes(data);
+    } catch (e) {
+      console.log('Error loading disputes:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDisputes();
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchDisputes();
+  }, []);
+
+  const handleAction = async (id: string, newStatus: 'approved' | 'rejected') => {
+    try {
+      await disputeService.resolveDispute(id, newStatus);
+      setDisputes((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
+      );
+      Alert.alert(
+        newStatus === 'approved' ? 'Dispute Approved' : 'Dispute Rejected',
+        `Attendance dispute status updated.`
+      );
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update dispute status.');
+    }
   };
 
   return (
@@ -67,69 +61,93 @@ const DisputesScreen: React.FC = () => {
         <Text style={styles.headerSubtitle}>Review and resolve attendance appeal requests from students</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.listContent}>
-        {disputes.map((item) => {
-          const isPending = item.status === 'pending';
-          const isApproved = item.status === 'approved';
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0D9488"
+            colors={['#0D9488']}
+          />
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0D9488" />
+            <Text style={styles.loadingText}>Loading dispute appeals...</Text>
+          </View>
+        ) : disputes.length > 0 ? (
+          disputes.map((item) => {
+            const isPending = item.status === 'pending';
+            const isApproved = item.status === 'approved';
 
-          return (
-            <View key={item.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.classBadge}>
-                  <Text style={styles.classText}>{item.classCode}</Text>
-                </View>
-                <Text style={styles.dateText}>Session: {item.sessionDate}</Text>
-              </View>
-
-              <View style={styles.studentRow}>
-                <Text style={styles.studentName}>{item.studentName}</Text>
-                <Text style={styles.studentId}>({item.studentId})</Text>
-              </View>
-
-              <Text style={styles.reasonText}>{item.reason}</Text>
-
-              <View style={styles.footerRow}>
-                <Text style={styles.submittedText}>Submitted: {item.submittedAt}</Text>
-
-                {isPending ? (
-                  <View style={styles.actionBtns}>
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      onPress={() => handleAction(item.id, 'rejected')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.rejectText}>Reject</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.approveBtn}
-                      onPress={() => handleAction(item.id, 'approved')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.approveText}>Approve</Text>
-                    </TouchableOpacity>
+            return (
+              <View key={item.id} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.classBadge}>
+                    <Text style={styles.classText}>{item.classCode}</Text>
                   </View>
-                ) : (
-                  <View
-                    style={[
-                      styles.statusPill,
-                      isApproved ? styles.pillApproved : styles.pillRejected,
-                    ]}
-                  >
-                    <Text
+                  <Text style={styles.dateText}>Session: {item.sessionDate}</Text>
+                </View>
+
+                <View style={styles.studentRow}>
+                  <Text style={styles.studentName}>{item.studentName}</Text>
+                  <Text style={styles.studentId}>({item.studentId})</Text>
+                </View>
+
+                <Text style={styles.reasonText}>{item.reason}</Text>
+
+                <View style={styles.footerRow}>
+                  <Text style={styles.submittedText}>Submitted: {item.submittedAt}</Text>
+
+                  {isPending ? (
+                    <View style={styles.actionBtns}>
+                      <TouchableOpacity
+                        style={styles.rejectBtn}
+                        onPress={() => handleAction(item.id, 'rejected')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.rejectText}>Reject</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.approveBtn}
+                        onPress={() => handleAction(item.id, 'approved')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.approveText}>Approve</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View
                       style={[
-                        styles.statusPillText,
-                        isApproved ? styles.textApproved : styles.textRejected,
+                        styles.statusPill,
+                        isApproved ? styles.pillApproved : styles.pillRejected,
                       ]}
                     >
-                      {isApproved ? 'Approved' : 'Rejected'}
-                    </Text>
-                  </View>
-                )}
+                      <Text
+                        style={[
+                          styles.statusPillText,
+                          isApproved ? styles.textApproved : styles.textRejected,
+                        ]}
+                      >
+                        {isApproved ? 'Approved' : 'Rejected'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          );
-        })}
+            );
+          })
+        ) : (
+          <View style={styles.emptyState}>
+            <AppIcon name="checkmark-circle-outline" size={36} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>No pending disputes</Text>
+            <Text style={styles.emptySubtitle}>All student attendance disputes have been resolved.</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -161,6 +179,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -266,6 +295,28 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 11, fontWeight: '700' },
   textApproved: { color: '#15803D' },
   textRejected: { color: '#991B1B' },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 10,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
+    textAlign: 'center',
+  },
 });
 
 export default DisputesScreen;

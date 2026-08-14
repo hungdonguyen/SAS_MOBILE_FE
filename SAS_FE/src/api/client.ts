@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { API_BASE_URL, API_TIMEOUT_MS } from './config';
+import { apiConfig, API_TIMEOUT_MS } from './config';
 import {
   requestAuthInterceptor,
   responseSuccessInterceptor,
@@ -10,7 +10,7 @@ import {
  * Global configured Axios Client for Smart Attendance System.
  */
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: apiConfig.getBaseUrl(),
   timeout: API_TIMEOUT_MS,
   withCredentials: true,
   headers: {
