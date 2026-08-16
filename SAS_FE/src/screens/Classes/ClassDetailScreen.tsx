@@ -243,9 +243,9 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
 
       // Re-fetch session roster to reflect updated metrics
       await loadSessionRoster(selectedSessionId);
-    } catch (err: any) {
+    } catch (err) {
       console.log('Error saving attendance changes:', err);
-      Alert.alert('Save Failed', err.message || 'Could not save attendance updates.');
+      Alert.alert('Save Failed', (err as any).message || 'Could not save attendance updates.');
     } finally {
       setSaving(false);
     }

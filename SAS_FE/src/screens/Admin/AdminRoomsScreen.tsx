@@ -40,9 +40,9 @@ const AdminRoomsScreen: React.FC = () => {
         limit: 50,
       });
       setRooms(res.data);
-    } catch (error: any) {
+    } catch (error) {
       console.log('Error loading rooms:', error);
-      Alert.alert('Error', error.message || 'Failed to load rooms');
+      Alert.alert('Error', (error as any).message || 'Failed to load rooms');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -93,8 +93,8 @@ const AdminRoomsScreen: React.FC = () => {
       setNewRoomCode('');
       Alert.alert('Success', `Room ${newRoomCode} registered successfully.`);
       loadRooms();
-    } catch (error: any) {
-      Alert.alert('Creation Error', error.message || 'Failed to create room.');
+    } catch (error) {
+      Alert.alert('Creation Error', (error as any).message || 'Failed to create room.');
     } finally {
       setIsSubmitting(false);
     }
@@ -115,8 +115,8 @@ const AdminRoomsScreen: React.FC = () => {
               setRooms((prev) =>
                 prev.map((r) => (r.roomId === room.roomId ? { ...r, isActive: newStatus } : r))
               );
-            } catch (error: any) {
-              Alert.alert('Update Failed', error.message || 'Could not update room status.');
+            } catch (error) {
+              Alert.alert('Update Failed', (error as any).message || 'Could not update room status.');
             }
           },
         },

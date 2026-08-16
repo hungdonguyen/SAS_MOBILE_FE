@@ -6,14 +6,20 @@ export interface TodaySessionValidation {
 
 export interface TodaySessionDto {
   sessionId: string;
-  subjectName: string;
-  subjectCode: string;
-  roomName: string;
-  startTime: string;
-  endTime: string;
-  attendanceStatus: 'pending' | 'present' | 'late' | 'absent' | 'excused';
-  checkedInAt: string | null;
-  validations: TodaySessionValidation;
+  subjectName?: string;
+  subject_name?: string;
+  subjectCode?: string;
+  subject_code?: string;
+  roomName?: string;
+  room_name?: string;
+  startTime?: string;
+  start_time?: string;
+  endTime?: string;
+  end_time?: string;
+  attendanceStatus?: 'pending' | 'present' | 'late' | 'absent' | 'excused';
+  status?: string;
+  checkedInAt?: string | null;
+  validations?: TodaySessionValidation;
 }
 
 export interface SubmitAttendanceDto {
@@ -42,21 +48,31 @@ export interface JobResultData {
 
 export interface JobStatusResponse {
   jobId: string;
-  status: 'waiting' | 'active' | 'processing' | 'completed' | 'failed';
+  status: 'processing' | 'present' | 'absent' | 'failed';
+  attendanceStatus?: string;
+  failureReason?: string;
+  attendanceId?: string;
+  // Fallback for some AI results if needed
   result?: JobResultData;
   error?: string;
 }
 
 export interface AttendanceHistoryDto {
   id: string;
-  subjectName: string;
-  subjectCode: string;
-  sessionDate: string;
-  startTime: string;
-  endTime: string;
-  roomName: string;
+  subjectName?: string;
+  subject_name?: string;
+  subjectCode?: string;
+  subject_code?: string;
+  sessionDate?: string;
+  date?: string;
+  startTime?: string;
+  time?: string;
+  endTime?: string;
+  roomName?: string;
+  room_name?: string;
   status: 'present' | 'late' | 'absent' | 'excused';
-  checkedInAt: string | null;
+  checkedInAt?: string | null;
+  method?: string;
 }
 
 export interface LoginResponse {

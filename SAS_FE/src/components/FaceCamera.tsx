@@ -58,6 +58,8 @@ export interface FaceCaptureData {
 export interface FaceCameraHandle {
   /** Manually trigger a capture — for fallback use only */
   triggerCapture: () => void;
+  /** Reset the camera state to allow taking another photo */
+  reset: () => void;
 }
 
 interface FaceCameraProps {
@@ -98,7 +100,11 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
   ) => {
     const cameraRef = useRef<InstanceType<typeof Camera>>(null);
     const { hasPermission, requestPermission } = useCameraPermission();
-    const device = useCameraDevice(facing);
+    const requestedDevice = useCameraDevice(facing);
+    const fallbackBack = useCameraDevice('back');
+    const fallbackFront = useCameraDevice('front');
+    // Mặc định ưu tiên requestedDevice, nếu không có thì lấy camera bất kỳ (back hoặc front)
+    const device = requestedDevice || fallbackFront || fallbackBack;
     const { detectFaces } = useFaceDetector({ performanceMode: 'fast' });
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -136,21 +142,8 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         return;
       }
       (async () => {
-        if (Platform.OS === 'android') {
-          const r = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.CAMERA,
-            {
-              title: 'Quyền Camera',
-              message: 'SAS Mobile cần Camera để nhận diện khuôn mặt.',
-              buttonPositive: 'Cho phép',
-              buttonNegative: 'Từ chối',
-            },
-          );
-          setPermissionGranted(r === PermissionsAndroid.RESULTS.GRANTED);
-        } else {
-          const ok = await requestPermission();
-          setPermissionGranted(ok);
-        }
+        const ok = await requestPermission();
+        setPermissionGranted(ok);
       })();
     }, [hasPermission, requestPermission]);
 
@@ -199,8 +192,8 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
           base64,
           uri: fileUri,
         });
-      } catch (err: any) {
-        console.log('[FaceCamera] capture error:', err.message);
+      } catch (err) {
+        console.log('[FaceCamera] capture error:', (err as any).message);
         capturedRef.current = false;
         setCaptured(false);
         setFaceStatus('none');
@@ -232,6 +225,12 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
     // ── Expose manual trigger via ref ─────────────────────────────────────────
     useImperativeHandle(ref, () => ({
       triggerCapture: () => doCapture(),
+      reset: () => {
+        capturedRef.current = false;
+        setCaptured(false);
+        setFaceStatus('none');
+        stopCountdown();
+      }
     }));
 
     // ── JS callbacks called from frame processor ──────────────────────────────
@@ -379,7 +378,10 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
       return (
         <View style={styles.centeredState}>
           <AppIcon name="camera-outline" size={44} color="#94A3B8" />
-          <Text style={styles.errorTitle}>Không tìm thấy camera {facing}</Text>
+          <Text style={styles.errorTitle}>Không tìm thấy camera</Text>
+          <Text style={{textAlign: 'center', marginTop: 10, color: '#64748B'}}>
+            Vui lòng kiểm tra lại kết nối camera (DroidCam) hoặc cấu hình Emulator.
+          </Text>
         </View>
       );
     }

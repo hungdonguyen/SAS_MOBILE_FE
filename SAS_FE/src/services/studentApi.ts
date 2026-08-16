@@ -135,39 +135,49 @@ export const studentApi = {
    * Authenticate student credentials with Backend NestJS
    * POST /auth/login
    */
-  login: async (username: string, password: string): Promise<LoginResponse> => {
+  login: async (username: string, password: string): Promise<any> => {
     const client = createClient();
-    const response = await client.post<LoginResponse>('/auth/login', {
+    const response = await client.post<{ token?: string; user?: any; userId?: string; role?: string; hasRegisteredFace?: boolean }>('/auth/login', {
       username,
       password,
     });
 
     const data = response.data;
 
-    // Extract access_token from Set-Cookie headers if present
-    try {
-      const setCookie = response.headers['set-cookie'];
-      if (setCookie) {
-        const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie);
-        const match = cookieStr.match(/access_token=([^;]+)/);
-        if (match?.[1]) {
-          authStorage.setAccessToken(match[1]);
+    // Save token if returned in body
+    if (data?.token) {
+      authStorage.setAccessToken(data.token);
+    } else {
+      // Fallback: Extract access_token from Set-Cookie headers if present
+      try {
+        const setCookie = response.headers['set-cookie'];
+        if (setCookie) {
+          const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie);
+          const match = cookieStr.match(/access_token=([^;]+)/);
+          if (match?.[1]) {
+            authStorage.setAccessToken(match[1]);
+          }
         }
+      } catch (e) {
+        console.log('Error parsing auth cookies:', e);
       }
-    } catch (e) {
-      console.log('Error parsing auth cookies:', e);
     }
 
-    if (data?.userId) {
+    // Determine user object
+    const userObj = data?.user || data;
+
+    if (userObj?.userId) {
       authStorage.setUser({
-        userId: data.userId,
-        username,
-        role: data.role,
-        hasRegisteredFace: Boolean(data.hasRegisteredFace),
-      });
+        userId: userObj.userId,
+        username: userObj.username || username,
+        role: userObj.role || 'student',
+        hasRegisteredFace: Boolean(userObj.hasFaceRegistered ?? userObj.hasRegisteredFace),
+        fullName: userObj.fullName,
+        email: userObj.email,
+      } as any);
     }
 
-    return data;
+    return userObj;
   },
 
   /**

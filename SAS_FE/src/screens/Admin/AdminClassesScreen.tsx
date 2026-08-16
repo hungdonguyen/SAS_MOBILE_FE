@@ -28,9 +28,9 @@ const AdminClassesScreen: React.FC = () => {
         limit: 50,
       });
       setSections(res.data);
-    } catch (error: any) {
+    } catch (error) {
       console.log('Error loading class sections:', error);
-      Alert.alert('Error', error.message || 'Failed to load classes');
+      Alert.alert('Error', (error as any).message || 'Failed to load classes');
     } finally {
       setLoading(false);
       setRefreshing(false);

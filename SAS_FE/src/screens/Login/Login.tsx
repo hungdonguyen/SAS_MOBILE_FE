@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { studentApi } from '../../services/studentApi';
+import { getErrorMessage } from '../../utils/errors';
 import { authStorage as studentAuthStorage } from '../../services/authStorage';
 import { apiConfig } from '../../services/apiConfig';
 
@@ -33,8 +34,10 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
+      // Chuẩn hóa tên đăng nhập thành chữ thường (giống web)
+      const normalizedUsername = id.trim().toLowerCase();
       // Use studentApi.login() — hits the real NestJS backend for ALL roles
-      const data = await studentApi.login(id.trim(), password);
+      const data = await studentApi.login(normalizedUsername, password);
 
       setMessage({
         text: `Welcome, ${id.trim()}! Role: ${data.role || 'user'}`,
@@ -49,14 +52,15 @@ const Login: React.FC = () => {
         navigation.navigate('Home');
       } else {
         // Student role: live API flow
-        navigation.navigate('StudentHome');
+        if (data.hasRegisteredFace === false) {
+          navigation.navigate('StudentFaceRegister');
+        } else {
+          navigation.navigate('StudentHome');
+        }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.log('Login error:', error);
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        `Login failed. Ensure backend NestJS is running on ${apiConfig.getBaseUrl()}`;
+      const errorMessage = getErrorMessage(error);
       setMessage({ text: errorMessage, type: 'error' });
     } finally {
       setLoading(false);

@@ -13,6 +13,7 @@ import AppIcon from '../../components/Icon/AppIcon';
 import FaceCamera from '../../components/FaceCamera';
 import { studentApi } from '../../services/studentApi';
 import { authStorage } from '../../services/authStorage';
+import { getErrorMessage } from '../../utils/errors';
 
 interface Props { navigation: any; }
 
@@ -41,8 +42,8 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
       // Update local storage so Profile reflects instantly
       authStorage.setHasRegisteredFace(true);
       setStep('done');
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Đăng ký thất bại. Thử lại.';
+    } catch (err) {
+      const msg = getErrorMessage(err);
       setErrorMsg(msg);
       setStep('error');
     }
@@ -159,7 +160,7 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
             <TouchableOpacity
               style={styles.doneBtn}
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.replace('StudentHome')}
               activeOpacity={0.85}>
               <Text style={styles.doneBtnText}>Hoàn tất</Text>
             </TouchableOpacity>
@@ -196,96 +197,99 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  safeArea: { flex: 1, backgroundColor: '#f0f6ff' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
+    backgroundColor: 'transparent',
   },
   backBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2,
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: '#0f172a' },
   scroll: { padding: 16, paddingBottom: 40 },
   guideCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12,
+    backgroundColor: '#ffffff', borderRadius: 16, padding: 20,
+    borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 12,
     alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
   },
   guideIconWrap: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#CCFBF1', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    backgroundColor: '#dbeafe', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
   guideTitle: {
-    fontSize: 18, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 8,
+    fontSize: 18, fontWeight: '800', color: '#0f172a', textAlign: 'center', marginBottom: 8,
   },
   guideSubtitle: {
-    fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 19, marginBottom: 20,
+    fontSize: 13, color: '#64748b', textAlign: 'center', lineHeight: 19, marginBottom: 20,
   },
   stepList: { width: '100%', gap: 12, marginBottom: 24 },
   stepItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   stepIconWrap: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#F0FDFA', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center',
   },
   stepText: { flex: 1, fontSize: 13, color: '#334155', lineHeight: 19 },
   startBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#0D9488', paddingVertical: 14, paddingHorizontal: 32,
+    backgroundColor: '#2563eb', paddingVertical: 14, paddingHorizontal: 32,
     borderRadius: 12, width: '100%', justifyContent: 'center',
+    shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
   },
-  startBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  startBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
   warningBox: {
     flexDirection: 'row', gap: 8, alignItems: 'flex-start',
-    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A',
+    backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a',
     borderRadius: 12, padding: 12,
   },
-  warningText: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 18 },
+  warningText: { flex: 1, fontSize: 12, color: '#92400e', lineHeight: 18 },
   cameraCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: '#E2E8F0',
+    backgroundColor: '#ffffff', borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: '#e2e8f0',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
   },
-  cameraTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 4 },
-  cameraSubtitle: { fontSize: 12, color: '#64748B', textAlign: 'center', marginBottom: 16, lineHeight: 17 },
+  cameraTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a', textAlign: 'center', marginBottom: 4 },
+  cameraSubtitle: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 16, lineHeight: 17 },
   cancelBtn: { marginTop: 16, alignItems: 'center', paddingVertical: 10 },
-  cancelBtnText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+  cancelBtnText: { fontSize: 13, color: '#64748b', fontWeight: '600' },
   modalBackdrop: {
     flex: 1, backgroundColor: 'rgba(15,23,42,0.65)',
     alignItems: 'center', justifyContent: 'center', padding: 24,
   },
   uploadingCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 20, padding: 32,
+    backgroundColor: '#ffffff', borderRadius: 20, padding: 32,
     alignItems: 'center', width: '100%', maxWidth: 300,
   },
-  uploadingTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginTop: 16 },
-  uploadingSubtitle: { fontSize: 12, color: '#64748B', textAlign: 'center', marginTop: 8, lineHeight: 18 },
+  uploadingTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a', marginTop: 16 },
+  uploadingSubtitle: { fontSize: 12, color: '#64748b', textAlign: 'center', marginTop: 8, lineHeight: 18 },
   resultCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24,
-    borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center',
+    backgroundColor: '#ffffff', borderRadius: 16, padding: 24,
+    borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
   },
   successIconWrap: {
     width: 84, height: 84, borderRadius: 42,
-    backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    backgroundColor: '#d1fae5', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
   errorIconWrap: {
     width: 84, height: 84, borderRadius: 42,
-    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
-  resultTitle: { fontSize: 20, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 10 },
-  resultDesc: { fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 19, marginBottom: 20 },
+  resultTitle: { fontSize: 20, fontWeight: '800', color: '#0f172a', textAlign: 'center', marginBottom: 10 },
+  resultDesc: { fontSize: 13, color: '#64748b', textAlign: 'center', lineHeight: 19, marginBottom: 20 },
   doneBtn: {
-    width: '100%', backgroundColor: '#0D9488', paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+    width: '100%', backgroundColor: '#22c55e', paddingVertical: 14, borderRadius: 12, alignItems: 'center',
   },
-  doneBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  doneBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
   errorBtns: { flexDirection: 'row', gap: 12, width: '100%' },
-  retryBtn: { flex: 1, backgroundColor: '#DC2626', paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
-  retryBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
-  backBtn2: { flex: 1, borderWidth: 1, borderColor: '#CBD5E1', paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
-  backBtn2Text: { color: '#64748B', fontSize: 14, fontWeight: '700' },
+  retryBtn: { flex: 1, backgroundColor: '#ef4444', paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
+  retryBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  backBtn2: { flex: 1, borderWidth: 1, borderColor: '#cbd5e1', paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
+  backBtn2Text: { color: '#64748b', fontSize: 14, fontWeight: '700' },
 });
 
 export default StudentFaceRegisterScreen;

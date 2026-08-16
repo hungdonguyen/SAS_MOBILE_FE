@@ -42,9 +42,9 @@ const AdminUsersScreen: React.FC = () => {
         limit: 50,
       });
       setUsers(res.data);
-    } catch (error: any) {
+    } catch (error) {
       console.log('Error loading users:', error);
-      Alert.alert('Error', error.message || 'Failed to load users');
+      Alert.alert('Error', (error as any).message || 'Failed to load users');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -111,8 +111,8 @@ const AdminUsersScreen: React.FC = () => {
       }
 
       loadUsers();
-    } catch (error: any) {
-      Alert.alert('Creation Failed', error.message || 'Could not create user.');
+    } catch (error) {
+      Alert.alert('Creation Failed', (error as any).message || 'Could not create user.');
     } finally {
       setIsSubmitting(false);
     }
@@ -134,8 +134,8 @@ const AdminUsersScreen: React.FC = () => {
                 'Password Reset Complete',
                 `New Temporary Password:\n\n${res.temporaryPassword}\n\nThe user must change this on their next login.`
               );
-            } catch (error: any) {
-              Alert.alert('Reset Failed', error.message || 'Unable to reset password.');
+            } catch (error) {
+              Alert.alert('Reset Failed', (error as any).message || 'Unable to reset password.');
             }
           },
         },
@@ -163,8 +163,8 @@ const AdminUsersScreen: React.FC = () => {
                 prev.map((u) => (u.userId === user.userId ? { ...u, isActive: newStatus } : u))
               );
               Alert.alert('Success', `User account is now ${newStatus ? 'active' : 'deactivated'}.`);
-            } catch (error: any) {
-              Alert.alert('Action Failed', error.message || 'Status update failed.');
+            } catch (error) {
+              Alert.alert('Action Failed', (error as any).message || 'Status update failed.');
             }
           },
         },

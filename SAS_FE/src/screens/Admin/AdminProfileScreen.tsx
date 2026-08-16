@@ -17,7 +17,7 @@ const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({ navigation }) =
     try {
       const data = await authService.getMe();
       setProfile(data);
-    } catch (error: any) {
+    } catch (error) {
       console.log('Error loading admin profile:', error);
     } finally {
       setLoading(false);
