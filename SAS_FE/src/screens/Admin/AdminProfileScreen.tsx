@@ -46,7 +46,9 @@ const AdminProfileScreen: React.FC<AdminProfileScreenProps> = ({ navigation }) =
           } catch (e) {
             console.log('Logout error:', e);
           } finally {
-            if (navigation) navigation.navigate('Login');
+            if (navigation) {
+              navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+            }
           }
         },
       },

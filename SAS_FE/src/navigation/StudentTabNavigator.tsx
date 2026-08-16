@@ -35,7 +35,7 @@ const StudentTabNavigator: React.FC = () => {
           },
         ],
         tabBarLabelStyle: styles.tabLabel,
-        tabBarIcon: ({ color, size, focused }: { color: string; size: number; focused: boolean }) => {
+        tabBarIcon: ({ color, focused }: { color: string; size: number; focused: boolean }) => {
           let iconName = 'grid-outline';
 
           if (route.name === 'StudentDashboardTab') {

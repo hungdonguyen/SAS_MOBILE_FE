@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,6 @@ import AppIcon from '../../components/Icon/AppIcon';
 import { StatMetric, ScheduleItem, SessionStatusType } from '../../types/dashboard';
 import { lecturerDashboardService } from '../../api/services/lecturerDashboardService';
 import { authStorage } from '../../api/storage';
-import { LecturerTodaySessionDto } from '../../api/types/dashboard.types';
 
 const LecturerDashboard: React.FC = () => {
   const navigation = useNavigation<any>();

@@ -17,6 +17,16 @@ const Header: React.FC<HeaderProps> = ({
   currentDate,
   onLogout,
 }) => {
+  const initials = lecturerName
+    ? lecturerName
+        .trim()
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'LC';
+
   return (
     <View style={styles.container}>
       {/* Top Navbar Row */}
@@ -46,7 +56,7 @@ const Header: React.FC<HeaderProps> = ({
               <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitials}>LC</Text>
+                <Text style={styles.avatarInitials}>{initials}</Text>
               </View>
             )}
           </View>

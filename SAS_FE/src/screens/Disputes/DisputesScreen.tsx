@@ -49,7 +49,7 @@ const DisputesScreen: React.FC = () => {
         newStatus === 'approved' ? 'Dispute Approved' : 'Dispute Rejected',
         `Attendance dispute status updated.`
       );
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to update dispute status.');
     }
   };

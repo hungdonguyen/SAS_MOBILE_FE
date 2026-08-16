@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -45,15 +45,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Acquire GPS on mount ──────────────────────────────────────────────────
-  useEffect(() => {
-    requestGps();
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, []);
-
-  const requestGps = async () => {
+  const requestGps = useCallback(async () => {
     setGpsStatus('acquiring');
 
     if (Platform.OS === 'android') {
@@ -74,11 +66,11 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     Geolocation.getCurrentPosition(
-      pos => {
+      (pos) => {
         setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setGpsStatus('ready');
       },
-      err => {
+      (_err) => {
         setGpsStatus('error');
         Alert.alert('Lỗi GPS', 'Không lấy được tọa độ. Bật GPS và thử lại.', [
           { text: 'Thử lại', onPress: requestGps },
@@ -87,7 +79,15 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
     );
-  };
+  }, []);
+
+  // ── Acquire GPS on mount ──────────────────────────────────────────────────
+  useEffect(() => {
+    requestGps();
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [requestGps]);
 
   // ── Called by FaceCamera when face auto-captured ──────────────────────────
   const handleFaceCaptured = async (data: { base64: string; uri: string }) => {

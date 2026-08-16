@@ -45,7 +45,6 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
   const initialClassCode = route?.params?.classCode || 'WP301';
   const initialSubjectName = route?.params?.subjectName || 'Course Details';
   const initialRoom = route?.params?.room || 'Campus Room';
-  const initialSchedule = route?.params?.schedule || 'Scheduled Time';
   const targetSessionId = route?.params?.sessionId;
 
   const [sectionId, setSectionId] = useState<string>(initialClassId);
@@ -53,7 +52,6 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
   const [sessions, setSessions] = useState<ClassSessionDto[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>(targetSessionId || '');
   const [students, setStudents] = useState<LocalStudentItem[]>([]);
-  const [originalStudents, setOriginalStudents] = useState<LocalStudentItem[]>([]);
 
   const [summary, setSummary] = useState({
     enrolledCount: 0,
@@ -70,60 +68,8 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
   const [saving, setSaving] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // ── Step 1: Load Class Section Metadata & Sessions List ─────────────────────
-  const loadSectionAndSessions = async () => {
-    try {
-      let resolvedId = sectionId;
-
-      // If classId passed is a code (not a UUID), resolve UUID first
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        resolvedId
-      );
-
-      if (!isUUID) {
-        const sectionsRes = await lecturerSectionService.listSections({
-          q: initialClassCode,
-          limit: 1,
-        });
-        if (sectionsRes.data && sectionsRes.data.length > 0) {
-          resolvedId = sectionsRes.data[0].sectionId;
-          setSectionId(resolvedId);
-        }
-      }
-
-      const [detailRes, sessionsRes] = await Promise.allSettled([
-        lecturerSectionService.getSectionById(resolvedId),
-        lecturerSectionService.getSectionSessions(resolvedId, { limit: 30 }),
-      ]);
-
-      if (detailRes.status === 'fulfilled') {
-        setSectionDetail(detailRes.value);
-      }
-
-      if (sessionsRes.status === 'fulfilled') {
-        const sessList = sessionsRes.value.data || [];
-        setSessions(sessList);
-
-        // Pick selected session
-        if (sessList.length > 0) {
-          const match = targetSessionId
-            ? sessList.find((s) => s.sessionId === targetSessionId)
-            : sessList[0];
-          const activeSessId = match ? match.sessionId : sessList[0].sessionId;
-          setSelectedSessionId(activeSessId);
-          loadSessionRoster(activeSessId);
-        }
-      }
-    } catch (e) {
-      console.log('Error loading section details & sessions:', e);
-    } finally {
-      setLoadingSection(false);
-      setRefreshing(false);
-    }
-  };
-
   // ── Step 2: Load Session Attendance Roster ──────────────────────────────────
-  const loadSessionRoster = async (sessionId: string) => {
+  const loadSessionRoster = useCallback(async (sessionId: string) => {
     if (!sessionId) return;
     setLoadingAttendance(true);
     try {
@@ -178,18 +124,69 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
         });
 
         setStudents(mapped);
-        setOriginalStudents(mapped);
       }
     } catch (e) {
       console.log('Error loading session roster:', e);
     } finally {
       setLoadingAttendance(false);
     }
-  };
+  }, []);
+
+  // ── Step 1: Load Class Section Metadata & Sessions List ─────────────────────
+  const loadSectionAndSessions = useCallback(async () => {
+    try {
+      let resolvedId = sectionId;
+
+      // If classId passed is a code (not a UUID), resolve UUID first
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        resolvedId
+      );
+
+      if (!isUUID) {
+        const sectionsRes = await lecturerSectionService.listSections({
+          q: initialClassCode,
+          limit: 1,
+        });
+        if (sectionsRes.data && sectionsRes.data.length > 0) {
+          resolvedId = sectionsRes.data[0].sectionId;
+          setSectionId(resolvedId);
+        }
+      }
+
+      const [detailRes, sessionsRes] = await Promise.allSettled([
+        lecturerSectionService.getSectionById(resolvedId),
+        lecturerSectionService.getSectionSessions(resolvedId, { limit: 30 }),
+      ]);
+
+      if (detailRes.status === 'fulfilled') {
+        setSectionDetail(detailRes.value);
+      }
+
+      if (sessionsRes.status === 'fulfilled') {
+        const sessList = sessionsRes.value.data || [];
+        setSessions(sessList);
+
+        // Pick selected session
+        if (sessList.length > 0) {
+          const match = targetSessionId
+            ? sessList.find((s) => s.sessionId === targetSessionId)
+            : sessList[0];
+          const activeSessId = match ? match.sessionId : sessList[0].sessionId;
+          setSelectedSessionId(activeSessId);
+          loadSessionRoster(activeSessId);
+        }
+      }
+    } catch (e) {
+      console.log('Error loading section details & sessions:', e);
+    } finally {
+      setLoadingSection(false);
+      setRefreshing(false);
+    }
+  }, [sectionId, initialClassCode, targetSessionId, loadSessionRoster]);
 
   useEffect(() => {
     loadSectionAndSessions();
-  }, [sectionId]);
+  }, [loadSectionAndSessions]);
 
   const handleSelectSession = (sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -199,7 +196,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadSectionAndSessions();
-  }, [sectionId]);
+  }, [loadSectionAndSessions]);
 
   // ── Step 3: Handle Status Changes Locally ───────────────────────────────────
   const handleStatusChange = (studentId: string, newStatus: AttendanceStatus) => {
@@ -272,15 +269,6 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
     sectionDetail?.subject?.name || initialSubjectName || 'Course Details';
   const displayRoom =
     sectionDetail?.schedules?.[0]?.roomCode || initialRoom || 'Room TBD';
-  const displaySchedule =
-    sectionDetail?.schedules && sectionDetail.schedules.length > 0
-      ? sectionDetail.schedules
-          .map(
-            (s) =>
-              `${s.dayOfWeek} (${(s.startTime || '').slice(0, 5)} - ${(s.endTime || '').slice(0, 5)})`
-          )
-          .join(' • ')
-      : initialSchedule;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>

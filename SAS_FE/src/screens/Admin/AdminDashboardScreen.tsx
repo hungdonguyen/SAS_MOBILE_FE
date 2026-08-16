@@ -19,7 +19,7 @@ interface AdminDashboardScreenProps {
   navigation?: any;
 }
 
-const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navigation }) => {
+const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = () => {
   const [stats, setStats] = useState<AdminStatMetric[]>([]);
   const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
   const [activeClasses, setActiveClasses] = useState<AdminClassItem[]>([]);

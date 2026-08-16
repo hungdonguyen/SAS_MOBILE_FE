@@ -39,7 +39,7 @@ const AdminClassesScreen: React.FC = () => {
 
   useEffect(() => {
     loadSections();
-  }, []);
+  }, [loadSections]);
 
   // Debounced search
   useEffect(() => {
@@ -47,7 +47,7 @@ const AdminClassesScreen: React.FC = () => {
       loadSections(searchQuery);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [loadSections, searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);

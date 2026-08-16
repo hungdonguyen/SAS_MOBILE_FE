@@ -26,16 +26,15 @@ const StudentProfileScreen: React.FC = () => {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [faceImageBase64, setFaceImageBase64] = useState<string | null>(null);
   const [loadingFaceImage, setLoadingFaceImage] = useState(false);
-  const [isDeletingFace, setIsDeletingFace] = useState(false);
 
-  // ─── Fetch fresh profile and face image on every screen focus ──────────────
-  useFocusEffect(
-    useCallback(() => {
-      fetchProfile();
-    }, []),
-  );
+  const fetchFaceImage = useCallback(async (userId: string) => {
+    setLoadingFaceImage(true);
+    const base64 = await studentApi.fetchBiometricImageBase64(userId);
+    setFaceImageBase64(base64);
+    setLoadingFaceImage(false);
+  }, []);
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setLoadingProfile(true);
     try {
       const me = await studentApi.getMe();
@@ -69,14 +68,14 @@ const StudentProfileScreen: React.FC = () => {
     } finally {
       setLoadingProfile(false);
     }
-  };
+  }, [fetchFaceImage]);
 
-  const fetchFaceImage = async (userId: string) => {
-    setLoadingFaceImage(true);
-    const base64 = await studentApi.fetchBiometricImageBase64(userId);
-    setFaceImageBase64(base64);
-    setLoadingFaceImage(false);
-  };
+  // ─── Fetch fresh profile and face image on every screen focus ──────────────
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [fetchProfile]),
+  );
 
   const handleSaveApiUrl = () => {
     if (!apiUrl.trim()) {

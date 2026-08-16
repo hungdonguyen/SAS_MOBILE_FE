@@ -51,7 +51,7 @@ const AdminRoomsScreen: React.FC = () => {
 
   useEffect(() => {
     loadRooms();
-  }, []);
+  }, [loadRooms]);
 
   // Debounced search
   useEffect(() => {
@@ -59,7 +59,7 @@ const AdminRoomsScreen: React.FC = () => {
       loadRooms(searchQuery);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [loadRooms, searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);

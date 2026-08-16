@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -183,8 +183,6 @@ const StudentDashboardScreen: React.FC = () => {
           </View>
         ) : (
           sessions.map((session) => {
-            const isCheckedIn =
-              session.attendanceStatus === 'present' || session.attendanceStatus === 'late';
             const isPending = session.attendanceStatus === 'pending';
 
             return (

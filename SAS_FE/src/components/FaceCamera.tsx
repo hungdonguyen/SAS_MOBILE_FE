@@ -154,27 +154,6 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
       })();
     }, [hasPermission, requestPermission]);
 
-    // ── Cleanup on unmount ────────────────────────────────────────────────────
-    useEffect(() => () => {
-      stopCountdown();
-    }, []);
-
-    // ── Countdown control ─────────────────────────────────────────────────────
-    const startCountdown = useCallback(() => {
-      if (countdownTimerRef.current !== null) return; // already running
-      countdownValueRef.current = countdownSeconds;
-      setCountdown(countdownSeconds);
-
-      countdownTimerRef.current = setInterval(() => {
-        countdownValueRef.current -= 1;
-        setCountdown(countdownValueRef.current);
-        if (countdownValueRef.current <= 0) {
-          stopCountdown();
-          doCapture();
-        }
-      }, 1000);
-    }, [countdownSeconds]);
-
     const stopCountdown = useCallback(() => {
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
@@ -228,6 +207,27 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         Alert.alert('Lỗi chụp ảnh', 'Không thể chụp ảnh. Vui lòng thử lại.');
       }
     }, [isProcessing, onCapture]);
+
+    // ── Countdown control ─────────────────────────────────────────────────────
+    const startCountdown = useCallback(() => {
+      if (countdownTimerRef.current !== null) return; // already running
+      countdownValueRef.current = countdownSeconds;
+      setCountdown(countdownSeconds);
+
+      countdownTimerRef.current = setInterval(() => {
+        countdownValueRef.current -= 1;
+        setCountdown(countdownValueRef.current);
+        if (countdownValueRef.current <= 0) {
+          stopCountdown();
+          doCapture();
+        }
+      }, 1000);
+    }, [countdownSeconds, stopCountdown, doCapture]);
+
+    // ── Cleanup on unmount ────────────────────────────────────────────────────
+    useEffect(() => () => {
+      stopCountdown();
+    }, [stopCountdown]);
 
     // ── Expose manual trigger via ref ─────────────────────────────────────────
     useImperativeHandle(ref, () => ({

@@ -23,7 +23,6 @@ const AdminUsersScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'lecturer'>('all');
   const [selectedUser, setSelectedUser] = useState<UserDetailResponse | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -54,7 +53,7 @@ const AdminUsersScreen: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
-  }, [roleFilter]);
+  }, [loadUsers, roleFilter]);
 
   // Debounced search
   useEffect(() => {
@@ -62,7 +61,7 @@ const AdminUsersScreen: React.FC = () => {
       loadUsers(searchQuery);
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [loadUsers, searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -71,15 +70,12 @@ const AdminUsersScreen: React.FC = () => {
 
   const handleUserCardPress = async (user: UserResponse) => {
     try {
-      setIsDetailLoading(true);
       setSelectedUser(user as UserDetailResponse);
       const detail = await userService.getUserById(user.userId);
       setSelectedUser(detail);
-    } catch (error) {
+    } catch {
       // Fallback to item
       setSelectedUser(user as UserDetailResponse);
-    } finally {
-      setIsDetailLoading(false);
     }
   };
 

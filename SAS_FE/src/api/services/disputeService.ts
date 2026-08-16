@@ -61,7 +61,7 @@ export const disputeService = {
   async resolveDispute(
     id: string,
     status: 'approved' | 'rejected',
-    note?: string,
+    _note?: string,
   ): Promise<DisputeItem> {
     return new Promise((resolve, reject) => {
       const idx = mockDisputes.findIndex((d) => d.id === id);

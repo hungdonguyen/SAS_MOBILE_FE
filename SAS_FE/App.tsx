@@ -1,5 +1,5 @@
-import React from 'react';
-import { StatusBar, useColorScheme } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StatusBar, useColorScheme, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,16 +10,58 @@ import StudentTabNavigator from './src/navigation/StudentTabNavigator';
 import StudentCheckInScreen from './src/screens/Student/StudentCheckInScreen';
 import StudentFaceRegisterScreen from './src/screens/Student/StudentFaceRegisterScreen';
 import { navigationRef } from './src/services/navigationService';
+import { authStorage } from './src/services/authStorage';
+import { apiConfig } from './src/services/apiConfig';
 
 const Stack = createNativeStackNavigator();
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initialRoute, setInitialRoute] = useState<'Login' | 'StudentHome' | 'Home' | 'AdminHome'>('Login');
+
+  useEffect(() => {
+    const bootstrap = async () => {
+      try {
+        await Promise.all([authStorage.init(), apiConfig.init()]);
+        const user = authStorage.getUser();
+        const token = authStorage.getAccessToken();
+
+        if (user && token) {
+          const role = (user.role || '').toLowerCase();
+          if (role === 'admin') {
+            setInitialRoute('AdminHome');
+          } else if (role === 'lecturer' || role === 'teacher') {
+            setInitialRoute('Home');
+          } else {
+            setInitialRoute('StudentHome');
+          }
+        } else {
+          setInitialRoute('Login');
+        }
+      } catch (err) {
+        console.log('[App] Bootstrap error:', err);
+        setInitialRoute('Login');
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    bootstrap();
+  }, []);
+
+  if (isInitializing) {
+    return (
+      <View style={styles.splashContainer}>
+        <ActivityIndicator size="large" color="#0D9488" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaProvider>
       <NavigationContainer ref={navigationRef}>
-        <Stack.Navigator initialRouteName="Login">
+        <Stack.Navigator initialRouteName={initialRoute}>
           {/* Auth */}
           <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
 
@@ -55,5 +97,14 @@ function App() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default App;

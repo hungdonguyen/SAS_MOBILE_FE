@@ -260,7 +260,7 @@ export const studentApi = {
       }
       const mimeType = response.headers['content-type'] || 'image/jpeg';
       return `data:${mimeType};base64,${base64}`;
-    } catch (err) {
+    } catch {
       return null;
     }
   },
