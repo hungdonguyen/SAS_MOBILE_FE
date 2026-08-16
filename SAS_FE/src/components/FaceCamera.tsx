@@ -35,7 +35,7 @@ import {
   useFrameProcessor,
 } from 'react-native-vision-camera';
 import { useFaceDetector } from 'react-native-vision-camera-face-detector';
-import { Worklets } from 'react-native-worklets-core';
+import { useRunOnJS } from 'react-native-worklets-core';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -235,19 +235,15 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
     }));
 
     // ── JS callbacks called from frame processor ──────────────────────────────
-    const onFaceGood = useCallback(() => {
+    const notifyFaceGood = useRunOnJS(() => {
       setFaceStatus('good');
       startCountdown();
     }, [startCountdown]);
 
-    const onFaceLost = useCallback((status: FaceStatus) => {
+    const notifyFaceLost = useRunOnJS((status: FaceStatus) => {
       setFaceStatus(status);
       stopCountdown();
     }, [stopCountdown]);
-
-    // Bridge functions created via Worklets.createRunOnJS
-    const notifyFaceGood = Worklets.createRunOnJS(onFaceGood);
-    const notifyFaceLost = Worklets.createRunOnJS(onFaceLost);
 
     // ── Frame processor (runs on camera thread via worklet) ───────────────────
     const frameProcessor = useFrameProcessor(
