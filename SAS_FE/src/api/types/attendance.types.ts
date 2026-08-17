@@ -1,56 +1,70 @@
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused' | 'pending';
 
-export interface SessionAttendanceRecordDto {
-  attendanceId: string;
+export interface StudentAttendanceRecordDto {
+  enrollmentId: string;
   studentId: string;
-  username: string;
-  fullName: string;
+  mssv: string;
+  name: string;
   email: string;
   avatarUrl: string | null;
+  faceRegistered: boolean;
+  attendanceId: string | null;
   status: AttendanceStatus;
-  checkInMethod: string | null;
+  checkInMethod: 'SELF_CHECKIN' | 'MANUAL' | string | null;
   checkedInAt: string | null;
   note: string | null;
   confidence: number | null;
-  ipAddress: string | null;
   deviceInfo: string | null;
-  recognitionResult: string | null;
+  ipAddress: string | null;
   isOverridden: boolean;
-  originalStatus: AttendanceStatus | null;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
+  // Aliases for compatibility
+  username?: string;
+  fullName?: string;
 }
 
-export interface SessionAttendanceSummaryDto {
-  enrolledCount: number;
+export type SessionAttendanceRecordDto = StudentAttendanceRecordDto;
+
+export interface AttendanceSummaryDto {
+  totalStudents: number;
   presentCount: number;
   lateCount: number;
   absentCount: number;
   excusedCount: number;
   pendingCount: number;
-  attendanceRate: number;
+  attendanceRate?: number;
+  // Aliases
+  enrolledCount?: number;
 }
 
-export interface SessionInfoSummaryDto {
+export type SessionAttendanceSummaryDto = AttendanceSummaryDto;
+
+export interface SessionInfoDto {
   sessionId: string;
-  scheduleId: string;
-  sessionDate: string;
-  status: string;
-  subjectCode: string;
+  sectionId: string;
   subjectName: string;
+  subjectCode: string;
   room: string;
-  building: string;
+  date: string;
   startTime: string;
   endTime: string;
-  timeFormatted: string;
-  networkValidationEnabled: boolean;
-  gpsValidationEnabled: boolean;
-  faceValidationEnabled: boolean;
+  sessionStatus: 'scheduled' | 'ongoing' | 'completed' | 'cancelled' | string;
+  validations: {
+    networkValidationEnabled: boolean;
+    gpsValidationEnabled: boolean;
+    faceValidationEnabled: boolean;
+  };
 }
 
+export type SessionInfoSummaryDto = SessionInfoDto;
+
 export interface SessionAttendanceDetailResponseDto {
-  session: SessionInfoSummaryDto;
-  summary: SessionAttendanceSummaryDto;
-  data: SessionAttendanceRecordDto[];
-  meta: {
+  session: SessionInfoDto;
+  summary: AttendanceSummaryDto;
+  students: StudentAttendanceRecordDto[];
+  data?: StudentAttendanceRecordDto[];
+  meta?: {
     total: number;
     page: number;
     limit: number;

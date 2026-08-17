@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LecturerDashboard from '../screens/Dashboard/LecturerDashboard';
 import ClassesStackNavigator from './ClassesStackNavigator';
 import StudentsScreen from '../screens/Students/StudentsScreen';
-import DisputesScreen from '../screens/Disputes/DisputesScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import AppIcon from '../components/Icon/AppIcon';
 
@@ -13,7 +12,6 @@ export type LecturerTabParamList = {
   DashboardTab: undefined;
   ClassesTab: undefined;
   StudentsTab: undefined;
-  DisputesTab: undefined;
   SettingsTab: undefined;
 };
 
@@ -48,8 +46,6 @@ const LecturerTabNavigator: React.FC = () => {
             iconName = focused ? 'school' : 'school-outline';
           } else if (route.name === 'StudentsTab') {
             iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'DisputesTab') {
-            iconName = focused ? 'alert-circle' : 'alert-circle-outline';
           } else if (route.name === 'SettingsTab') {
             iconName = focused ? 'settings' : 'settings-outline';
           }
@@ -76,11 +72,6 @@ const LecturerTabNavigator: React.FC = () => {
         name="StudentsTab"
         component={StudentsScreen}
         options={{ tabBarLabel: 'Students' }}
-      />
-      <Tab.Screen
-        name="DisputesTab"
-        component={DisputesScreen}
-        options={{ tabBarLabel: 'Disputes' }}
       />
       <Tab.Screen
         name="SettingsTab"

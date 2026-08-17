@@ -18,10 +18,13 @@ export interface AdminDashboardData {
  * Response of GET /dashboard/lecturer/stats
  */
 export interface LecturerStatsResponseDto {
-  assignedClasses: number;
-  totalStudents: number;
+  assignedClassesCount: number;
+  totalStudentsCount: number;
   averageAttendanceRate: number;
   todaySessionsCount: number;
+  // Optional aliases for backward compatibility
+  assignedClasses?: number;
+  totalStudents?: number;
 }
 
 /**
@@ -30,17 +33,27 @@ export interface LecturerStatsResponseDto {
  */
 export interface LecturerTodaySessionDto {
   sessionId: string;
-  scheduleId: string;
   sectionId: string;
-  subjectCode: string;
-  subjectName: string;
-  room: string;
+  courseCode: string;
+  courseName: string;
+  roomCode: string;
   building: string;
+  timeRange: string;
   startTime: string;
   endTime: string;
-  sessionDate: string;
-  status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
-  checkedInCount: number;
+  status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+  presentCount: number;
   totalEnrolled: number;
-  attendanceRate: number;
+  attendanceRatio?: string;
+  progressPercentage?: number;
+  validations?: {
+    networkEnabled: boolean;
+    gpsEnabled: boolean;
+    faceEnabled: boolean;
+  };
+  // Optional aliases
+  subjectCode?: string;
+  subjectName?: string;
+  room?: string;
+  checkedInCount?: number;
 }

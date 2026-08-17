@@ -44,23 +44,27 @@ const StudentsScreen: React.FC = () => {
           );
           const enrolledList = studentsRes.data || [];
 
-          return enrolledList.map((st) => {
-            const rate = Math.round(st.attendanceRate ?? 100);
+          return enrolledList.map((st: any) => {
+            const rate = Math.round(
+              st.attendanceStats?.attendanceRate ?? st.attendanceRate ?? 100
+            );
             let status: 'Good' | 'Warning' | 'Critical' = 'Good';
             if (rate < 65) status = 'Critical';
             else if (rate < 80) status = 'Warning';
 
-            const initials = (st.fullName || st.username || 'ST')
+            const displayName = st.name || st.fullName || st.username || 'Student';
+            const mssv = st.mssv || st.username || st.studentId.slice(0, 8);
+            const initials = displayName
               .split(' ')
-              .map((w) => w[0])
+              .map((w: string) => w[0])
               .join('')
               .slice(0, 2)
               .toUpperCase();
 
             return {
-              id: st.username || st.studentId.slice(0, 8),
-              name: st.fullName || st.username,
-              email: st.email || `${st.username}@campus.edu.vn`,
+              id: mssv,
+              name: displayName,
+              email: st.email || `${mssv}@campus.edu.vn`,
               classCode: sec.subject?.code || 'CLASS',
               avatarInitials: initials,
               attendanceRate: rate,

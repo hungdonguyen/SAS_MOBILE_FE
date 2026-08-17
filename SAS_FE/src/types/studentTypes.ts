@@ -87,6 +87,8 @@ export interface StudentUserSession {
   username: string;
   role: 'student' | 'lecturer' | 'admin';
   hasRegisteredFace: boolean;
+  fullName?: string;
+  email?: string;
 }
 
 /** Response from GET /auth/me */

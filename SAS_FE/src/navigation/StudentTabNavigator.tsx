@@ -4,11 +4,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StudentDashboardScreen from '../screens/Student/StudentDashboardScreen';
 import StudentHistoryScreen from '../screens/Student/StudentHistoryScreen';
+import StudentProfileScreen from '../screens/Student/StudentProfileScreen';
 import AppIcon from '../components/Icon/AppIcon';
 
 export type StudentTabParamList = {
   StudentDashboardTab: undefined;
   StudentHistoryTab: undefined;
+  StudentProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<StudentTabParamList>();
@@ -40,6 +42,8 @@ const StudentTabNavigator: React.FC = () => {
             iconName = focused ? 'grid' : 'grid-outline';
           } else if (route.name === 'StudentHistoryTab') {
             iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'StudentProfileTab') {
+            iconName = focused ? 'person' : 'person-outline';
           }
 
           return (
@@ -59,6 +63,11 @@ const StudentTabNavigator: React.FC = () => {
         name="StudentHistoryTab"
         component={StudentHistoryScreen}
         options={{ tabBarLabel: 'History' }}
+      />
+      <Tab.Screen
+        name="StudentProfileTab"
+        component={StudentProfileScreen}
+        options={{ tabBarLabel: 'Profile' }}
       />
     </Tab.Navigator>
   );

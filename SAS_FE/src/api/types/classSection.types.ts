@@ -54,6 +54,7 @@ export interface ClassSectionQuery {
   page?: number;
   limit?: number;
   q?: string;
+  search?: string;
   semesterId?: string;
   subjectId?: string;
   lecturerId?: string;

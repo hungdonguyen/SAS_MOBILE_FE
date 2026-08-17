@@ -55,3 +55,34 @@ export interface AnomalyAlert {
   timestamp: string;
   location?: string;
 }
+
+export interface AdminSubjectItem {
+  id: string;
+  code: string;
+  name: string;
+  credit: number;
+  description?: string;
+  isActive: boolean;
+  sectionsCount?: number;
+}
+
+export interface AdminSemesterItem {
+  id: string;
+  code?: string;
+  semesterName: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  status: 'active' | 'upcoming' | 'closed' | 'inactive';
+  sectionsCount?: number;
+}
+
+export interface AdminNetworkItem {
+  id: string;
+  networkName: string;
+  ipAddress: string;
+  description?: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+

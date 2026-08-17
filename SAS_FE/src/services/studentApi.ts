@@ -276,6 +276,41 @@ export const studentApi = {
   },
 
   /**
+   * Fetch the student's decrypted attendance check-in photo for a specific session.
+   * GET /attendance/:attendanceId/image
+   */
+  fetchAttendanceImageBase64: async (attendanceId: string): Promise<string | null> => {
+    try {
+      const token = authStorage.getAccessToken();
+      const base = apiConfig.getBaseUrl();
+      const response = await axios.get(`${base}/attendance/${attendanceId}/image`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+        responseType: 'arraybuffer',
+        timeout: 10000,
+        withCredentials: true,
+      });
+      const bytes = new Uint8Array(response.data as ArrayBuffer);
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+      let base64 = '';
+      for (let i = 0; i < bytes.length; i += 3) {
+        const b0 = bytes[i];
+        const b1 = i + 1 < bytes.length ? bytes[i + 1] : 0;
+        const b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
+        base64 += chars[b0 >> 2];
+        base64 += chars[((b0 & 3) << 4) | (b1 >> 4)];
+        base64 += i + 1 < bytes.length ? chars[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+        base64 += i + 2 < bytes.length ? chars[b2 & 63] : '=';
+      }
+      const mimeType = response.headers['content-type'] || 'image/jpeg';
+      return `data:${mimeType};base64,${base64}`;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
    * Submit 3-layer check-in data to BullMQ queue
    * POST /attendance/check-in
    */

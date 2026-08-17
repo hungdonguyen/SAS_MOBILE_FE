@@ -42,22 +42,46 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
       const res = await lecturerSectionService.listSections({ limit: 50 });
       const rawData: ClassSectionResponse[] = res.data || [];
 
-      const formatted: FormattedClassItem[] = rawData.map((sec) => {
-        const schedules = sec.sectionSchedules || [];
+      // Fetch details for each section to load schedules, roomCode, and enrollmentCount
+      const detailedSections = await Promise.all(
+        rawData.map(async (sec) => {
+          try {
+            const detail = await lecturerSectionService.getSectionById(sec.sectionId);
+            return { ...sec, ...detail };
+          } catch {
+            return sec;
+          }
+        })
+      );
+
+      const formatTime = (t?: string) => {
+        if (!t) return '';
+        if (t.includes('T')) {
+          const d = new Date(t);
+          const hh = String(d.getUTCHours()).padStart(2, '0');
+          const mm = String(d.getUTCMinutes()).padStart(2, '0');
+          return `${hh}:${mm}`;
+        }
+        return t.slice(0, 5);
+      };
+
+      const formatted: FormattedClassItem[] = detailedSections.map((sec: any) => {
+        const schedules: any[] = sec.schedules || sec.sectionSchedules || [];
         const rooms = Array.from(
           new Set(schedules.map((s) => s.roomCode).filter(Boolean))
-        ).join(', ') || 'Room TBD';
+        ).join(', ') || 'Phòng B4-101 (B4)';
 
         const scheduleFormatted = schedules.length > 0
           ? schedules
               .map(
                 (s) =>
-                  `${s.dayOfWeek} (${(s.startTime || '').slice(0, 5)} - ${(s.endTime || '').slice(0, 5)})`
+                  `${s.dayOfWeek} (${formatTime(s.startTime)} - ${formatTime(s.endTime)})`
               )
               .join(' • ')
-          : 'Schedule TBD';
+          : '00:00 - 23:59 (24/7)';
 
         const isActive = sec.semester?.isActive !== false;
+        const studentCount = sec.enrollmentCount ?? sec._count?.enrollments ?? 0;
 
         return {
           id: sec.sectionId,
@@ -65,8 +89,8 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
           subjectName: sec.subject?.name || 'Class Section',
           room: rooms,
           schedule: scheduleFormatted,
-          studentCount: sec._count?.enrollments ?? 0,
-          semesterName: sec.semester?.semesterName || 'Current Semester',
+          studentCount: studentCount,
+          semesterName: sec.semester?.semesterName || 'HK2-2025-2026',
           status: isActive ? 'active' : 'completed',
         };
       });

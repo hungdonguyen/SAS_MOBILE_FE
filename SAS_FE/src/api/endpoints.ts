@@ -85,4 +85,10 @@ export const API_ENDPOINTS = {
     IMAGE: (studentId: string) => `/biometrics/image/${studentId}`,
     BY_STUDENT_ID: (studentId: string) => `/biometrics/${studentId}`,
   },
+
+  // Networks Management (Admin)
+  NETWORKS: {
+    BASE: '/networks',
+    BY_ID: (id: string) => `/networks/${id}`,
+  },
 };

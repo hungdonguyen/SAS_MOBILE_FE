@@ -22,7 +22,6 @@ import AppIcon from '../../components/Icon/AppIcon';
 
 import DashboardHeader from '../../components/Student/DashboardHeader';
 import TimeStatusCard from '../../components/Student/TimeStatusCard';
-import LocationGuide from '../../components/Student/LocationGuide';
 import TodaySchedule from '../../components/Student/TodaySchedule';
 
 const StudentDashboardScreen: React.FC = () => {
@@ -105,8 +104,6 @@ const StudentDashboardScreen: React.FC = () => {
           sessions={sessions} 
           onCheckInPress={(session) => navigation.navigate('StudentCheckIn', { session })} 
         />
-
-        <LocationGuide />
 
         {loading ? (
           <View style={styles.centerContainer}>

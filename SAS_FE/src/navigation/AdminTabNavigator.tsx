@@ -5,7 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
 import AdminUsersScreen from '../screens/Admin/AdminUsersScreen';
 import AdminClassesScreen from '../screens/Admin/AdminClassesScreen';
+import AdminSubjectsScreen from '../screens/Admin/AdminSubjectsScreen';
 import AdminRoomsScreen from '../screens/Admin/AdminRoomsScreen';
+import AdminNetworksScreen from '../screens/Admin/AdminNetworksScreen';
 import AdminProfileScreen from '../screens/Admin/AdminProfileScreen';
 import AppIcon from '../components/Icon/AppIcon';
 
@@ -13,7 +15,9 @@ export type AdminTabParamList = {
   AdminDashboardTab: undefined;
   AdminUsersTab: undefined;
   AdminClassesTab: undefined;
+  AdminSubjectsTab: undefined;
   AdminRoomsTab: undefined;
+  AdminNetworksTab: undefined;
   AdminSettingsTab: undefined;
 };
 
@@ -21,8 +25,8 @@ const Tab = createBottomTabNavigator<AdminTabParamList>();
 
 const AdminTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const bottomInset = insets.bottom > 0 ? insets.bottom : 8;
-  const tabBarHeight = 56 + bottomInset;
+  const bottomInset = insets.bottom > 0 ? insets.bottom : 6;
+  const tabBarHeight = 54 + bottomInset;
 
   return (
     <Tab.Navigator
@@ -48,15 +52,19 @@ const AdminTabNavigator: React.FC = () => {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'AdminClassesTab') {
             iconName = focused ? 'school' : 'school-outline';
+          } else if (route.name === 'AdminSubjectsTab') {
+            iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'AdminRoomsTab') {
             iconName = focused ? 'location' : 'location-outline';
+          } else if (route.name === 'AdminNetworksTab') {
+            iconName = focused ? 'wifi' : 'wifi-outline';
           } else if (route.name === 'AdminSettingsTab') {
             iconName = focused ? 'settings' : 'settings-outline';
           }
 
           return (
             <View style={focused ? styles.activeIconContainer : null}>
-              <AppIcon name={iconName} size={20} color={color} />
+              <AppIcon name={iconName} size={18} color={color} />
             </View>
           );
         },
@@ -78,9 +86,19 @@ const AdminTabNavigator: React.FC = () => {
         options={{ tabBarLabel: 'Classes' }}
       />
       <Tab.Screen
+        name="AdminSubjectsTab"
+        component={AdminSubjectsScreen}
+        options={{ tabBarLabel: 'Subjects' }}
+      />
+      <Tab.Screen
         name="AdminRoomsTab"
         component={AdminRoomsScreen}
         options={{ tabBarLabel: 'Rooms' }}
+      />
+      <Tab.Screen
+        name="AdminNetworksTab"
+        component={AdminNetworksScreen}
+        options={{ tabBarLabel: 'Networks' }}
       />
       <Tab.Screen
         name="AdminSettingsTab"
@@ -104,7 +122,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   activeIconContainer: {

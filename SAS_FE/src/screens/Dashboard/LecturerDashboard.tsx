@@ -76,12 +76,17 @@ const LecturerDashboard: React.FC = () => {
 
       if (kpiRes.status === 'fulfilled') {
         const kpi = kpiRes.value;
+        const assignedClasses = kpi.assignedClassesCount ?? kpi.assignedClasses ?? 0;
+        const totalStudents = kpi.totalStudentsCount ?? kpi.totalStudents ?? 0;
+        const avgRate = kpi.averageAttendanceRate ?? 0;
+        const todayCount = kpi.todaySessionsCount ?? 0;
+
         setStats([
           {
             id: 'stat-1',
             title: 'Assigned Classes',
-            value: kpi.assignedClasses,
-            trend: `${kpi.assignedClasses} active sections`,
+            value: assignedClasses,
+            trend: `${assignedClasses} active sections`,
             iconName: 'school-outline',
             backgroundColor: '#0D9488',
             accentColor: '#0F766E',
@@ -89,8 +94,8 @@ const LecturerDashboard: React.FC = () => {
           {
             id: 'stat-2',
             title: 'Students',
-            value: kpi.totalStudents,
-            trend: `${kpi.totalStudents} total enrolled`,
+            value: totalStudents,
+            trend: `${totalStudents} total enrolled`,
             iconName: 'people-outline',
             backgroundColor: '#2563EB',
             accentColor: '#1D4ED8',
@@ -98,7 +103,7 @@ const LecturerDashboard: React.FC = () => {
           {
             id: 'stat-3',
             title: 'Attendance Rate',
-            value: `${kpi.averageAttendanceRate}%`,
+            value: `${avgRate}%`,
             trend: 'Semester average',
             iconName: 'checkmark-circle-outline',
             backgroundColor: '#10B981',
@@ -107,8 +112,8 @@ const LecturerDashboard: React.FC = () => {
           {
             id: 'stat-4',
             title: 'Today Sessions',
-            value: kpi.todaySessionsCount,
-            trend: `${kpi.todaySessionsCount} scheduled`,
+            value: todayCount,
+            trend: `${todayCount} scheduled`,
             iconName: 'time-outline',
             backgroundColor: '#F59E0B',
             accentColor: '#D97706',
@@ -117,25 +122,32 @@ const LecturerDashboard: React.FC = () => {
       }
 
       if (sessionsRes.status === 'fulfilled') {
-        const mappedSessions: ScheduleItem[] = sessionsRes.value.map((sess) => {
+        const mappedSessions: (ScheduleItem & { sectionId?: string })[] = sessionsRes.value.map((sess) => {
           let status: SessionStatusType = 'upcoming';
           if (sess.status === 'ongoing') status = 'ongoing';
           else if (sess.status === 'completed') status = 'completed';
           else if (sess.status === 'cancelled') status = 'cancelled';
 
+          const courseCode = sess.courseCode || sess.subjectCode || 'CLASS';
+          const courseName = sess.courseName || sess.subjectName || 'Course';
+          const room = sess.roomCode || sess.room || 'TBD';
+          const present = sess.presentCount ?? sess.checkedInCount ?? 0;
+          const enrolled = sess.totalEnrolled ?? 0;
+
           return {
             id: sess.sessionId,
-            classId: sess.subjectCode || 'CLASS',
-            subjectName: sess.subjectName || 'Course',
-            room: sess.room || 'TBD',
+            sectionId: sess.sectionId,
+            classId: courseCode,
+            subjectName: courseName,
+            room: room,
             building: sess.building || 'Campus',
             startTime: sess.startTime ? sess.startTime.slice(0, 5) : '07:30',
             endTime: sess.endTime ? sess.endTime.slice(0, 5) : '09:30',
-            timeFormatted: `${sess.startTime ? sess.startTime.slice(0, 5) : '07:30'} - ${
+            timeFormatted: sess.timeRange || `${sess.startTime ? sess.startTime.slice(0, 5) : '07:30'} - ${
               sess.endTime ? sess.endTime.slice(0, 5) : '09:30'
             }`,
-            checkedInCount: sess.checkedInCount ?? 0,
-            totalCapacity: sess.totalEnrolled ?? 0,
+            checkedInCount: present,
+            totalCapacity: enrolled,
             status,
           };
         });
@@ -177,10 +189,16 @@ const LecturerDashboard: React.FC = () => {
     });
   }, [todaySchedules, searchQuery, activeFilter]);
 
-  const handleAttendanceAction = (item: ScheduleItem) => {
+  const handleAttendanceAction = (item: ScheduleItem & { sectionId?: string }) => {
     navigation.navigate('ClassesTab', {
       screen: 'ClassDetail',
-      params: { classId: item.classId, sessionId: item.id },
+      params: {
+        classId: item.sectionId || item.id,
+        sessionId: item.id,
+        classCode: item.classId,
+        subjectName: item.subjectName,
+        room: item.room,
+      },
     });
   };
 

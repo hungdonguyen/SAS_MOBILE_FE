@@ -32,6 +32,8 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
   // ─── GPS ──────────────────────────────────────────────────────────────────
   const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'ready' | 'denied' | 'error'>('acquiring');
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const gpsCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const gpsStatusRef = useRef<'acquiring' | 'ready' | 'denied' | 'error'>('acquiring');
 
   // ─── Check-in flow ────────────────────────────────────────────────────────
   const [step, setStep] = useState<CheckInStep>('camera');
@@ -47,56 +49,123 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cameraRef = useRef<any>(null);
 
+  const onGpsSuccess = useCallback((pos: any) => {
+    const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    console.log('[GPS] Acquired coords:', coords.lat, coords.lng);
+    gpsCoordsRef.current = coords;
+    gpsStatusRef.current = 'ready';
+    setGpsCoords(coords);
+    setGpsStatus('ready');
+  }, []);
+
   const requestGps = useCallback(async () => {
     setGpsStatus('acquiring');
+    gpsStatusRef.current = 'acquiring';
 
     if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-      ]);
-      const fineGranted = granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
-      const coarseGranted = granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
-      
-      if (!fineGranted && !coarseGranted) {
-        setGpsStatus('denied');
+      try {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ]);
+        const fineGranted =
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
+          PermissionsAndroid.RESULTS.GRANTED;
+        const coarseGranted =
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] ===
+          PermissionsAndroid.RESULTS.GRANTED;
+
+        if (!fineGranted && !coarseGranted) {
+          gpsStatusRef.current = 'denied';
+          setGpsStatus('denied');
+          return;
+        }
+      } catch (permErr) {
+        console.log('[GPS] Permission error:', permErr);
+        gpsStatusRef.current = 'error';
+        setGpsStatus('error');
         return;
       }
     }
 
+    // 1. Fetch immediately via low accuracy / cached / mock location (fastest on emulator and indoor)
     Geolocation.getCurrentPosition(
-      (pos) => {
-        setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setGpsStatus('ready');
+      onGpsSuccess,
+      () => {
+        // 2. Fallback to high accuracy if needed
+        Geolocation.getCurrentPosition(
+          onGpsSuccess,
+          (err) => {
+            console.log('[GPS] All position requests failed:', err);
+            gpsStatusRef.current = 'error';
+            setGpsStatus('error');
+          },
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 },
+        );
       },
-      (_err) => {
-        setGpsStatus('error');
-        Alert.alert('Lỗi GPS', 'Không lấy được tọa độ. Bật GPS và thử lại.', [
-          { text: 'Thử lại', onPress: requestGps },
-          { text: 'Bỏ qua', style: 'cancel' },
-        ]);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 },
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 },
     );
-  }, []);
+  }, [onGpsSuccess]);
 
-  // ── Acquire GPS on mount ──────────────────────────────────────────────────
+  // ── Acquire GPS on mount & continuous tracking ────────────────────────────
   useEffect(() => {
     requestGps();
+
+    let watchId: number | null = null;
+    try {
+      watchId = Geolocation.watchPosition(
+        onGpsSuccess,
+        (err) => console.log('[GPS watch update]', err?.message),
+        { enableHighAccuracy: false, distanceFilter: 1, interval: 2000, fastestInterval: 1000 },
+      );
+    } catch (e) {
+      console.log('[GPS] watchPosition error:', e);
+    }
+
     return () => {
+      if (watchId !== null) Geolocation.clearWatch(watchId);
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [requestGps]);
+  }, [requestGps, onGpsSuccess]);
 
   // ── Called by FaceCamera when face auto-captured ──────────────────────────
   const handleFaceCaptured = async (data: { base64: string; uri: string }) => {
     if (!session) { Alert.alert('Lỗi', 'Không tìm thấy thông tin buổi học.'); return; }
 
-    if (gpsStatus !== 'ready' || !gpsCoords) {
+    let targetCoords = gpsCoordsRef.current;
+
+    // If GPS is not ready yet, give it up to 3 seconds to resolve before failing
+    if (!targetCoords) {
+      setStep('submitting');
+      setSubmittingMsg('Đang lấy tọa độ GPS...');
+      for (let i = 0; i < 6; i++) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 500));
+        if (gpsCoordsRef.current) {
+          targetCoords = gpsCoordsRef.current;
+          break;
+        }
+      }
+    }
+
+    if (!targetCoords) {
+      setStep('camera');
       Alert.alert(
         'GPS chưa sẵn sàng',
-        'Đang chờ lấy tọa độ. Thử lại sau vài giây.',
-        [{ text: 'Thử lại GPS', onPress: requestGps }, { text: 'OK', style: 'cancel' }],
+        'Chưa nhận được tọa độ GPS. Vui lòng kiểm tra lại GPS hoặc Set Location trên máy ảo rồi thử lại.',
+        [
+          {
+            text: 'Thử lại',
+            onPress: () => {
+              cameraRef.current?.reset();
+              requestGps();
+            },
+          },
+          {
+            text: 'Hủy',
+            style: 'cancel',
+            onPress: () => cameraRef.current?.reset(),
+          },
+        ],
       );
       return;
     }
@@ -107,8 +176,8 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
     try {
       const queued = await studentApi.submitCheckIn({
         sessionId: session.sessionId,
-        gpsLat: gpsCoords.lat,
-        gpsLng: gpsCoords.lng,
+        gpsLat: targetCoords.lat,
+        gpsLng: targetCoords.lng,
         imageBase64: data.base64,
       });
 

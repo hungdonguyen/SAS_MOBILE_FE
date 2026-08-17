@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import AppIcon from '../../components/Icon/AppIcon';
 import SearchBar from '../../components/SearchBar/SearchBar';
 import AttendanceStatusPicker from '../../components/AttendanceStatusPicker/AttendanceStatusPicker';
@@ -29,6 +30,7 @@ interface ClassDetailScreenProps {
 
 interface LocalStudentItem {
   id: string; // studentId (UUID or student ID)
+  mssv: string;
   attendanceId?: string;
   studentName: string;
   email: string;
@@ -76,28 +78,39 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
       const rosterRes = await lecturerAttendanceService.getSessionAttendance(sessionId);
 
       if (rosterRes) {
+        const summaryData = rosterRes.summary;
+        const total = summaryData?.totalStudents ?? summaryData?.enrolledCount ?? 0;
+        const present = summaryData?.presentCount ?? 0;
+        const late = summaryData?.lateCount ?? 0;
+        const absent = summaryData?.absentCount ?? 0;
+        const excused = summaryData?.excusedCount ?? 0;
+        const calcRate = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
+
         setSummary({
-          enrolledCount: rosterRes.summary?.enrolledCount ?? 0,
-          presentCount: rosterRes.summary?.presentCount ?? 0,
-          lateCount: rosterRes.summary?.lateCount ?? 0,
-          absentCount: rosterRes.summary?.absentCount ?? 0,
-          excusedCount: rosterRes.summary?.excusedCount ?? 0,
-          attendanceRate: rosterRes.summary?.attendanceRate ?? 0,
+          enrolledCount: total,
+          presentCount: present,
+          lateCount: late,
+          absentCount: absent,
+          excusedCount: excused,
+          attendanceRate: summaryData?.attendanceRate ?? calcRate,
         });
 
-        const mapped: LocalStudentItem[] = (rosterRes.data || []).map((rec: SessionAttendanceRecordDto) => {
+        const rawList = rosterRes.students || (rosterRes as any).data || [];
+        const mapped: LocalStudentItem[] = rawList.map((rec: any) => {
           let method: 'AI' | 'Manual' | 'QRCode' | 'NFC' | '—' = '—';
           if (rec.checkInMethod === 'SELF_CHECKIN' || rec.checkInMethod === 'AI') method = 'AI';
           else if (rec.checkInMethod === 'MANUAL') method = 'Manual';
 
           let status: AttendanceStatus = 'absent';
-          if (rec.status === 'present' || rec.status === 'late' || rec.status === 'excused') {
+          if (rec.status === 'present' || rec.status === 'late' || rec.status === 'excused' || rec.status === 'pending') {
             status = rec.status;
           }
 
-          const initials = (rec.fullName || rec.username || 'ST')
+          const studentDisplayName = rec.name || rec.fullName || rec.username || rec.mssv || 'Student';
+          const studentMssv = rec.mssv || rec.username || rec.studentId.slice(0, 8);
+          const initials = studentDisplayName
             .split(' ')
-            .map((w) => w[0])
+            .map((w: string) => w[0])
             .join('')
             .slice(0, 2)
             .toUpperCase();
@@ -111,9 +124,10 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
 
           return {
             id: rec.studentId,
+            mssv: studentMssv,
             attendanceId: rec.attendanceId,
-            studentName: rec.fullName || rec.username,
-            email: rec.email || `${rec.username}@campus.edu.vn`,
+            studentName: studentDisplayName,
+            email: rec.email || `${studentMssv}@campus.edu.vn`,
             avatarInitials: initials,
             device: rec.deviceInfo || '—',
             checkInTime: timeFormatted,
@@ -135,27 +149,40 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
   // ── Step 1: Load Class Section Metadata & Sessions List ─────────────────────
   const loadSectionAndSessions = useCallback(async () => {
     try {
-      let resolvedId = sectionId;
+      const incomingClassId = route?.params?.classId || sectionId;
+      const incomingSessionId = route?.params?.sessionId || targetSessionId;
+      let resolvedId = incomingClassId;
 
-      // If classId passed is a code (not a UUID), resolve UUID first
+      // If classId passed is a code (not a UUID) or default sample 'WP301', resolve UUID first
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         resolvedId
       );
 
-      if (!isUUID) {
+      if (!isUUID || resolvedId === 'WP301') {
         const sectionsRes = await lecturerSectionService.listSections({
-          q: initialClassCode,
-          limit: 1,
+          limit: 20,
         });
-        if (sectionsRes.data && sectionsRes.data.length > 0) {
-          resolvedId = sectionsRes.data[0].sectionId;
+        const sectionList = sectionsRes.data || [];
+        if (sectionList.length > 0) {
+          const match = sectionList.find(
+            (s) =>
+              s.sectionId === resolvedId ||
+              s.subject?.code === initialClassCode ||
+              s.subject?.name === initialSubjectName
+          );
+          resolvedId = match ? match.sectionId : sectionList[0].sectionId;
           setSectionId(resolvedId);
         }
       }
 
+      if (incomingSessionId) {
+        setSelectedSessionId(incomingSessionId);
+        loadSessionRoster(incomingSessionId);
+      }
+
       const [detailRes, sessionsRes] = await Promise.allSettled([
         lecturerSectionService.getSectionById(resolvedId),
-        lecturerSectionService.getSectionSessions(resolvedId, { limit: 30 }),
+        lecturerSectionService.getSectionSessions(resolvedId, { limit: 100 }),
       ]);
 
       if (detailRes.status === 'fulfilled') {
@@ -163,15 +190,52 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
       }
 
       if (sessionsRes.status === 'fulfilled') {
-        const sessList = sessionsRes.value.data || [];
-        setSessions(sessList);
+        let sessList = sessionsRes.value.data || [];
 
-        // Pick selected session
+        // Smart Session Selection:
         if (sessList.length > 0) {
-          const match = targetSessionId
-            ? sessList.find((s) => s.sessionId === targetSessionId)
-            : sessList[0];
-          const activeSessId = match ? match.sessionId : sessList[0].sessionId;
+          const todayIso = new Date().toISOString().slice(0, 10);
+          let selectedSess = null;
+
+          // 1. Explicitly requested sessionId from navigation params
+          if (incomingSessionId) {
+            selectedSess = sessList.find((s) => s.sessionId === incomingSessionId);
+          }
+
+          // 2. Ongoing or Today's session
+          if (!selectedSess) {
+            selectedSess = sessList.find(
+              (s: any) =>
+                s.sessionStatus === 'ongoing' ||
+                s.date === todayIso ||
+                (s.sessionDate && (typeof s.sessionDate === 'string' ? s.sessionDate.slice(0, 10) : new Date(s.sessionDate).toISOString().slice(0, 10)) === todayIso)
+            );
+          }
+
+          // 3. Most recent session with actual attendance check-ins
+          if (!selectedSess) {
+            selectedSess = sessList.find(
+              (s: any) =>
+                ((s.summary?.presentCount ?? s.attendanceSummary?.presentCount ?? 0) > 0) ||
+                ((s.summary?.lateCount ?? s.attendanceSummary?.lateCount ?? 0) > 0)
+            );
+          }
+
+          // 4. Default to first in list
+          if (!selectedSess) {
+            selectedSess = sessList[0];
+          }
+
+          // Re-sort sessions so that sessions with attendance or today's sessions appear at the front
+          const activeSessId = selectedSess ? selectedSess.sessionId : sessList[0].sessionId;
+          
+          // Place the selected session at the front of the list for easy horizontal viewing
+          const reordered = [
+            ...sessList.filter((s) => s.sessionId === activeSessId),
+            ...sessList.filter((s) => s.sessionId !== activeSessId),
+          ];
+
+          setSessions(reordered);
           setSelectedSessionId(activeSessId);
           loadSessionRoster(activeSessId);
         }
@@ -182,11 +246,13 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
       setLoadingSection(false);
       setRefreshing(false);
     }
-  }, [sectionId, initialClassCode, targetSessionId, loadSessionRoster]);
+  }, [sectionId, route?.params?.classId, route?.params?.sessionId, initialClassCode, initialSubjectName, targetSessionId, loadSessionRoster]);
 
-  useEffect(() => {
-    loadSectionAndSessions();
-  }, [loadSectionAndSessions]);
+  useFocusEffect(
+    useCallback(() => {
+      loadSectionAndSessions();
+    }, [loadSectionAndSessions])
+  );
 
   const handleSelectSession = (sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -354,11 +420,17 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.sessionsHorizontalList}
             >
-              {sessions.map((sess) => {
+              {sessions.map((sess: any) => {
                 const isSelected = sess.sessionId === selectedSessionId;
-                const formattedDate = sess.sessionDate
+                const formattedDate = sess.date
+                  ? sess.date
+                  : sess.sessionDate
                   ? new Date(sess.sessionDate).toISOString().slice(0, 10)
                   : 'Date TBD';
+                const presentCount = sess.summary?.presentCount ?? sess.attendanceSummary?.presentCount ?? 0;
+                const lateCount = sess.summary?.lateCount ?? sess.attendanceSummary?.lateCount ?? 0;
+                const absentCount = sess.summary?.absentCount ?? sess.attendanceSummary?.absentCount ?? 0;
+                const rate = sess.summary?.attendanceRate ?? sess.attendanceSummary?.attendanceRate ?? 0;
 
                 return (
                   <TouchableOpacity
@@ -394,24 +466,24 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                       <View style={styles.statMiniItem}>
                         <Text style={styles.statMiniIcon}>👤</Text>
                         <Text style={styles.statMiniVal}>
-                          {sess.attendanceSummary?.presentCount ?? 0}
+                          {presentCount}
                         </Text>
                       </View>
                       <View style={styles.statMiniItem}>
                         <Text style={styles.statMiniIcon}>⚠️</Text>
                         <Text style={styles.statMiniVal}>
-                          {sess.attendanceSummary?.lateCount ?? 0}
+                          {lateCount}
                         </Text>
                       </View>
                       <View style={styles.statMiniItem}>
                         <Text style={styles.statMiniIcon}>🚫</Text>
                         <Text style={styles.statMiniVal}>
-                          {sess.attendanceSummary?.absentCount ?? 0}
+                          {absentCount}
                         </Text>
                       </View>
 
                       <Text style={styles.sessionRateBadge}>
-                        {sess.attendanceSummary?.attendanceRate ?? 0}%
+                        {rate}%
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -538,8 +610,18 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                   student.isModified && styles.studentCardModified,
                 ]}
               >
-                {/* Student Top Row: Avatar, Name, ID */}
-                <View style={styles.studentMainRow}>
+                {/* Student Top Row: Avatar, Name, ID - Tap to Verify AI & GPS */}
+                <TouchableOpacity
+                  style={styles.studentMainRow}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate('AttendanceVerification', {
+                      student,
+                      sectionId,
+                      sessionId: targetSessionId,
+                    })
+                  }
+                >
                   <View style={styles.avatarCircle}>
                     <Text style={styles.avatarText}>{student.avatarInitials}</Text>
                   </View>
@@ -547,11 +629,16 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                   <View style={styles.studentInfoCol}>
                     <View style={styles.nameIdRow}>
                       <Text style={styles.studentName}>{student.studentName}</Text>
-                      <Text style={styles.studentIdBadge}>{student.id.slice(0, 8)}</Text>
+                      <Text style={styles.studentIdBadge}>{student.mssv || student.id.slice(0, 8)}</Text>
                     </View>
                     <Text style={styles.studentEmail}>{student.email}</Text>
                   </View>
-                </View>
+
+                  <View style={styles.verifyAiBadge}>
+                    <AppIcon name="scan-outline" size={14} color="#0D9488" />
+                    <Text style={styles.verifyAiText}>Soi AI</Text>
+                  </View>
+                </TouchableOpacity>
 
                 {/* Details Row: Device, Time, Method Badge */}
                 <View style={styles.studentMetaRow}>
@@ -988,6 +1075,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     marginTop: 8,
+  },
+  verifyAiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#CCFBF1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  verifyAiText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F766E',
   },
 });
 
