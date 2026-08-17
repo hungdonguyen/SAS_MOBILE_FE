@@ -239,6 +239,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
               'FACE_NOT_REGISTERED': 'Tài khoản chưa đăng ký khuôn mặt',
               'FACE_IMAGE_MISSING': 'Thiếu ảnh khuôn mặt',
               'AI_ERROR': 'Lỗi xử lý AI nhận diện khuôn mặt',
+              'AiServiceUnavailableException': 'Dịch vụ AI hiện không khả dụng. Vui lòng thử lại sau',
               'TIMEOUT': 'Hệ thống xử lý quá thời gian',
               'UNKNOWN_ERROR': 'Lỗi không xác định'
             };

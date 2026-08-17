@@ -18,6 +18,11 @@ export enum ErrorCode {
   FACE_NOT_REGISTERED = 'FACE_NOT_REGISTERED',
   LOCATION_REJECTED = 'LOCATION_REJECTED',
   ALREADY_CHECKED_IN = 'ALREADY_CHECKED_IN',
+  
+  // AI errors
+  LIVENESS_FAILED = 'LIVENESS_FAILED',
+  NO_FACE_DETECTED = 'NO_FACE_DETECTED',
+  MULTIPLE_FACES_DETECTED = 'MULTIPLE_FACES_DETECTED',
 
   // Upload / Validation errors
   FILE_TOO_LARGE = 'FILE_TOO_LARGE',
@@ -46,6 +51,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
   [ErrorCode.FACE_NOT_REGISTERED]: 'Chưa đăng ký khuôn mặt. Vui lòng đăng ký trước khi điểm danh.',
   [ErrorCode.LOCATION_REJECTED]: 'Vị trí của bạn nằm ngoài phạm vi phòng học.',
   [ErrorCode.ALREADY_CHECKED_IN]: 'Bạn đã điểm danh cho buổi học này rồi.',
+
+  [ErrorCode.LIVENESS_FAILED]: 'Phát hiện ảnh giả / gian lận. Vui lòng sử dụng khuôn mặt thật.',
+  [ErrorCode.NO_FACE_DETECTED]: 'Không tìm thấy khuôn mặt trong ảnh.',
+  [ErrorCode.MULTIPLE_FACES_DETECTED]: 'Phát hiện nhiều khuôn mặt trong ảnh.',
 
   [ErrorCode.FILE_TOO_LARGE]: 'Kích thước file vượt quá giới hạn cho phép.',
   [ErrorCode.INVALID_FILE_TYPE]: 'Định dạng file không được hỗ trợ.',

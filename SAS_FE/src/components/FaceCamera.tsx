@@ -73,10 +73,9 @@ interface FaceCameraProps {
   facing?: 'front' | 'back';
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
 const DEFAULT_COUNTDOWN = 3;
-const OVAL_WIDTH = 260;
-const OVAL_HEIGHT = 320;
+const FRAME_WIDTH = '100%';
+const FRAME_ASPECT_RATIO = 3 / 4;
 
 // ─── Border colors ────────────────────────────────────────────────────────────
 const BORDER = {
@@ -332,7 +331,7 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         case 'too_far':
           return 'Quá xa — lại gần hơn';
         case 'off_center':
-          return 'Căn khuôn mặt vào giữa oval và nhìn thẳng';
+          return 'Căn khuôn mặt vào giữa khung và nhìn thẳng';
         default:
           return null;
       }
@@ -351,7 +350,7 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         case 'off_center':
           return 'Căn giữa khuôn mặt & nhìn thẳng';
         default:
-          return 'Đặt khuôn mặt vào khung oval';
+          return 'Đặt khuôn mặt vào khung hình';
       }
     };
 
@@ -509,9 +508,9 @@ const styles = StyleSheet.create({
     minHeight: 20,
   },
   ovalFrame: {
-    width: OVAL_WIDTH,
-    height: OVAL_HEIGHT,
-    borderRadius: OVAL_WIDTH / 2,
+    width: FRAME_WIDTH as any,
+    aspectRatio: FRAME_ASPECT_RATIO,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 3,
     backgroundColor: '#0F172A',
@@ -597,7 +596,7 @@ const styles = StyleSheet.create({
   tipsTitle: { fontSize: 13, fontWeight: '700', color: '#B45309' },
   tipText: { fontSize: 12, color: '#92400E', lineHeight: 20 },
   centeredState: {
-    height: OVAL_HEIGHT + 80,
+    height: 400,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,

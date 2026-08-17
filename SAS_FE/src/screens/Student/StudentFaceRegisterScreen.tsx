@@ -115,7 +115,7 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
         {/* Camera step — FaceCamera handles everything automatically */}
         {step === 'camera' && (
           <View style={styles.cameraCard}>
-            <Text style={styles.cameraTitle}>📸 Đặt khuôn mặt vào khung oval</Text>
+            <Text style={styles.cameraTitle}>📸 Đặt khuôn mặt vào khung hình</Text>
             <Text style={styles.cameraSubtitle}>
               AI sẽ tự động nhận diện và chụp ảnh. Không cần bấm nút.
             </Text>
