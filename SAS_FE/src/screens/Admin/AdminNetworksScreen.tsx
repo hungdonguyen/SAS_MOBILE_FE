@@ -17,41 +17,41 @@ import { AdminNetworkItem } from '../../types/adminTypes';
 const INITIAL_NETWORKS: AdminNetworkItem[] = [
   {
     id: 'net-1',
-    networkName: 'Wi-Fi Giảng Đường Khu A',
+    networkName: 'Campus Wi-Fi - Zone A',
     ipAddress: '172.16.0.0/16',
-    description: 'Dải mạng phủ sóng toàn bộ các phòng học tòa nhà A1 - A4',
+    description: 'Subnet covering classrooms in Building A1 - A4',
     isActive: true,
     createdAt: '2025-08-10',
   },
   {
     id: 'net-2',
-    networkName: 'Wi-Fi Giảng Đường Khu B & Hội Trường',
+    networkName: 'Campus Wi-Fi - Zone B & Hall',
     ipAddress: '172.18.0.0/16',
-    description: 'Dải mạng các phòng học tòa B và Hội trường trung tâm',
+    description: 'Subnet for Building B classrooms and Main Hall',
     isActive: true,
     createdAt: '2025-08-10',
   },
   {
     id: 'net-3',
-    networkName: 'Phòng Máy Tính Thực Hành IT Lab',
+    networkName: 'IT Computer Labs Network',
     ipAddress: '192.168.100.0/24',
-    description: 'Dải IP cố định cho các phòng máy thực hành Lab 101 - Lab 105',
+    description: 'Static IP subnet for Computer Labs 101 - 105',
     isActive: true,
     createdAt: '2025-09-01',
   },
   {
     id: 'net-4',
-    networkName: 'Môi Trường Android Emulator (Dev & Test)',
+    networkName: 'Android Emulator Environment (Dev & Test)',
     ipAddress: '10.0.2.2/32',
-    description: 'Dải IP NAT mặc định của Android Studio Emulator',
+    description: 'Default NAT IP subnet for Android Studio Emulator',
     isActive: true,
     createdAt: '2025-09-15',
   },
   {
     id: 'net-5',
-    networkName: 'Wi-Fi Thư Viện & Khu Tự Học',
+    networkName: 'Library & Study Area Wi-Fi',
     ipAddress: '172.20.0.0/16',
-    description: 'Khu vực tự học (Tạm tắt điểm danh ngoài giờ học)',
+    description: 'Self-study area (Temporarily disabled for attendance)',
     isActive: false,
     createdAt: '2025-10-01',
   },
@@ -94,7 +94,7 @@ const AdminNetworksScreen: React.FC = () => {
 
   const handleAddNetwork = () => {
     if (!netName.trim() || !netIp.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập Tên mạng và Địa chỉ IP / CIDR.');
+      Alert.alert('Missing Information', 'Please enter Network Name and IP Address / CIDR.');
       return;
     }
 
@@ -112,14 +112,14 @@ const AdminNetworksScreen: React.FC = () => {
     setNetName('');
     setNetIp('');
     setNetDesc('');
-    Alert.alert('Thành Công', `Đã thêm dải mạng "${newNet.networkName}" (${newNet.ipAddress})`);
+    Alert.alert('Success', `Added network "${newNet.networkName}" (${newNet.ipAddress})`);
   };
 
   const handleDeleteNetwork = (id: string, name: string) => {
-    Alert.alert('Xóa Dải Mạng', `Bạn có chắc muốn xóa "${name}" khỏi danh sách trắng điểm danh?`, [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert('Delete Network', `Are you sure you want to remove "${name}" from the attendance whitelist?`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Xóa',
+        text: 'Delete',
         style: 'destructive',
         onPress: () => {
           setNetworks(networks.filter((n) => n.id !== id));
@@ -137,14 +137,14 @@ const AdminNetworksScreen: React.FC = () => {
             <Text style={styles.logoText}>N</Text>
           </View>
           <View>
-            <Text style={styles.brandTitle}>Dải Mạng Điểm Danh</Text>
-            <Text style={styles.brandSubtitle}>Cấu hình IP Wi-Fi & Subnet CIDR trường</Text>
+            <Text style={styles.brandTitle}>Attendance IP Networks</Text>
+            <Text style={styles.brandSubtitle}>Configure campus Wi-Fi & CIDR subnet whitelist</Text>
           </View>
         </View>
 
         <TouchableOpacity style={styles.addButton} onPress={() => setIsAddModalOpen(true)}>
           <AppIcon name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Thêm Mạng</Text>
+          <Text style={styles.addButtonText}>Add Network</Text>
         </TouchableOpacity>
       </View>
 
@@ -155,7 +155,7 @@ const AdminNetworksScreen: React.FC = () => {
           onPress={() => setFilterActive('all')}
         >
           <Text style={styles.metricVal}>{networks.length}</Text>
-          <Text style={styles.metricLbl}>Tất cả dải IP</Text>
+          <Text style={styles.metricLbl}>All Subnets</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -163,7 +163,7 @@ const AdminNetworksScreen: React.FC = () => {
           onPress={() => setFilterActive('active')}
         >
           <Text style={[styles.metricVal, { color: '#16A34A' }]}>{activeCount}</Text>
-          <Text style={styles.metricLbl}>Đang cho phép</Text>
+          <Text style={styles.metricLbl}>Allowed</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -171,7 +171,7 @@ const AdminNetworksScreen: React.FC = () => {
           onPress={() => setFilterActive('inactive')}
         >
           <Text style={[styles.metricVal, { color: '#64748B' }]}>{inactiveCount}</Text>
-          <Text style={styles.metricLbl}>Tạm vô hiệu</Text>
+          <Text style={styles.metricLbl}>Disabled</Text>
         </TouchableOpacity>
       </View>
 
@@ -180,7 +180,7 @@ const AdminNetworksScreen: React.FC = () => {
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Tìm theo tên Wi-Fi hoặc dải IP (172.16.x.x)..."
+          placeholder="Search by network name or IP range (172.16.x.x)..."
         />
       </View>
 
@@ -208,7 +208,7 @@ const AdminNetworksScreen: React.FC = () => {
                   onPress={() => handleToggleActive(net.id)}
                 >
                   <Text style={[styles.statusText, net.isActive ? styles.statusTextActive : styles.statusTextInactive]}>
-                    {net.isActive ? '● Đang Kích Hoạt' : '○ Tắt'}
+                    {net.isActive ? '● Active' : '○ Disabled'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -227,14 +227,14 @@ const AdminNetworksScreen: React.FC = () => {
               ) : null}
 
               <View style={styles.cardFooterRow}>
-                <Text style={styles.createdDateText}>Tạo ngày: {net.createdAt || '2025-08-01'}</Text>
+                <Text style={styles.createdDateText}>Created: {net.createdAt || '2025-08-01'}</Text>
 
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => handleDeleteNetwork(net.id, net.networkName)}
                 >
                   <AppIcon name="trash-outline" size={14} color="#DC2626" />
-                  <Text style={styles.deleteBtnText}>Xóa Dải Mạng</Text>
+                  <Text style={styles.deleteBtnText}>Delete</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -242,8 +242,8 @@ const AdminNetworksScreen: React.FC = () => {
         ) : (
           <View style={styles.emptyBox}>
             <AppIcon name="wifi-outline" size={40} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>Không tìm thấy dải IP nào</Text>
-            <Text style={styles.emptySubtitle}>Thử thay đổi từ khóa tìm kiếm hoặc thêm mới dải mạng.</Text>
+            <Text style={styles.emptyTitle}>No networks found</Text>
+            <Text style={styles.emptySubtitle}>Try changing your search query or add a new network.</Text>
           </View>
         )}
       </ScrollView>
@@ -252,21 +252,21 @@ const AdminNetworksScreen: React.FC = () => {
       <Modal visible={isAddModalOpen} transparent animationType="fade" onRequestClose={() => setIsAddModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Thêm Dải Mạng Cho Phép</Text>
+            <Text style={styles.modalTitle}>Add Whitelisted Network</Text>
             <Text style={styles.modalSubtitle}>
-              Sinh viên kết nối IP thuộc dải này sẽ vượt qua lớp xác thực Network Validation.
+              Students connected to this IP subnet will pass Layer 1 Network Validation.
             </Text>
 
-            <Text style={styles.inputLabel}>Tên Dải Mạng / Vị Trí:</Text>
+            <Text style={styles.inputLabel}>Network Name / Location:</Text>
             <TextInput
               style={styles.modalInput}
               value={netName}
               onChangeText={setNetName}
-              placeholder="Wi-Fi Tòa Nhà B..."
+              placeholder="e.g., Campus Wi-Fi Building B"
               placeholderTextColor="#94A3B8"
             />
 
-            <Text style={styles.inputLabel}>Địa Chỉ IP hoặc Dải CIDR (Ví dụ: 172.16.0.0/16):</Text>
+            <Text style={styles.inputLabel}>IP Address or CIDR Subnet (e.g., 172.16.0.0/16):</Text>
             <TextInput
               style={styles.modalInput}
               value={netIp}
@@ -276,22 +276,22 @@ const AdminNetworksScreen: React.FC = () => {
               autoCapitalize="none"
             />
 
-            <Text style={styles.inputLabel}>Mô Tả Chi Tiết:</Text>
+            <Text style={styles.inputLabel}>Description / Details:</Text>
             <TextInput
               style={[styles.modalInput, { minHeight: 60 }]}
               value={netDesc}
               onChangeText={setNetDesc}
-              placeholder="Khu vực phòng học, phủ sóng..."
+              placeholder="Classroom area, coverage..."
               placeholderTextColor="#94A3B8"
               multiline
             />
 
             <View style={styles.modalActionsRow}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsAddModalOpen(false)}>
-                <Text style={styles.modalCancelText}>Hủy</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSaveBtn} onPress={handleAddNetwork}>
-                <Text style={styles.modalSaveText}>Lưu Dải Mạng</Text>
+                <Text style={styles.modalSaveText}>Save Network</Text>
               </TouchableOpacity>
             </View>
           </View>

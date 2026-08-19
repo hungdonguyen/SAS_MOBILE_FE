@@ -40,6 +40,10 @@ interface LocalStudentItem {
   method: 'AI' | 'Manual' | 'QRCode' | 'NFC' | '—';
   status: AttendanceStatus;
   isModified?: boolean;
+  confidence?: number | null;
+  ipAddress?: string | null;
+  note?: string | null;
+  isOverridden?: boolean;
 }
 
 const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route }) => {
@@ -134,6 +138,10 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
             method,
             status,
             isModified: false,
+            confidence: rec.confidence ?? null,
+            ipAddress: rec.ipAddress ?? null,
+            note: rec.note ?? null,
+            isOverridden: rec.isOverridden ?? false,
           };
         });
 
@@ -190,12 +198,19 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
       }
 
       if (sessionsRes.status === 'fulfilled') {
-        let sessList = sessionsRes.value.data || [];
+        let rawSessList = sessionsRes.value.data || [];
+
+        // Sort all sessions chronologically ascending (từ ngày đầu đến ngày cuối)
+        const sessList = [...rawSessList].sort((a: any, b: any) => {
+          const dateA = new Date(a.sessionDate || a.date).getTime();
+          const dateB = new Date(b.sessionDate || b.date).getTime();
+          return dateA - dateB;
+        });
 
         // Smart Session Selection:
         if (sessList.length > 0) {
           const todayIso = new Date().toISOString().slice(0, 10);
-          let selectedSess = null;
+          let selectedSess: any = null;
 
           // 1. Explicitly requested sessionId from navigation params
           if (incomingSessionId) {
@@ -226,13 +241,26 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
             selectedSess = sessList[0];
           }
 
-          // Re-sort sessions so that sessions with attendance or today's sessions appear at the front
           const activeSessId = selectedSess ? selectedSess.sessionId : sessList[0].sessionId;
-          
-          // Place the selected session at the front of the list for easy horizontal viewing
+          const selectedTime = new Date(selectedSess?.sessionDate || selectedSess?.date || todayIso).getTime();
+
+          // Sắp xếp: Đưa buổi được chọn lên đầu, các buổi tiếp theo trong tương lai gần nhất xếp sau, cuối cùng là các buổi trong quá khứ
+          const upcomingOrFuture = sessList.filter((s: any) => {
+            if (s.sessionId === activeSessId) return false;
+            return new Date(s.sessionDate || s.date).getTime() >= selectedTime;
+          });
+
+          const pastSessions = sessList
+            .filter((s: any) => {
+              if (s.sessionId === activeSessId) return false;
+              return new Date(s.sessionDate || s.date).getTime() < selectedTime;
+            })
+            .reverse(); // Buổi gần quá khứ nhất xếp trước
+
           const reordered = [
-            ...sessList.filter((s) => s.sessionId === activeSessId),
-            ...sessList.filter((s) => s.sessionId !== activeSessId),
+            ...(selectedSess ? [selectedSess] : []),
+            ...upcomingOrFuture,
+            ...pastSessions,
           ];
 
           setSessions(reordered);
@@ -618,7 +646,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
                     navigation.navigate('AttendanceVerification', {
                       student,
                       sectionId,
-                      sessionId: targetSessionId,
+                      sessionId: selectedSessionId || targetSessionId,
                     })
                   }
                 >
@@ -636,7 +664,7 @@ const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({ navigation, route
 
                   <View style={styles.verifyAiBadge}>
                     <AppIcon name="scan-outline" size={14} color="#0D9488" />
-                    <Text style={styles.verifyAiText}>Soi AI</Text>
+                    <Text style={styles.verifyAiText}>Verify AI</Text>
                   </View>
                 </TouchableOpacity>
 

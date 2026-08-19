@@ -123,10 +123,31 @@ const LecturerDashboard: React.FC = () => {
 
       if (sessionsRes.status === 'fulfilled') {
         const mappedSessions: (ScheduleItem & { sectionId?: string })[] = sessionsRes.value.map((sess) => {
-          let status: SessionStatusType = 'upcoming';
-          if (sess.status === 'ongoing') status = 'ongoing';
-          else if (sess.status === 'completed') status = 'completed';
-          else if (sess.status === 'cancelled') status = 'cancelled';
+          let status: SessionStatusType = (sess.status as SessionStatusType) || 'upcoming';
+
+          const sTime = sess.startTime ? sess.startTime.slice(0, 5) : '07:30';
+          const eTime = sess.endTime ? sess.endTime.slice(0, 5) : '09:30';
+
+          // Dynamic time resolution for today's sessions:
+          // If the session is not explicitly cancelled or completed, evaluate based on current time
+          if (status !== 'cancelled' && status !== 'completed') {
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+            const [sH, sM] = sTime.split(':').map((v) => parseInt(v, 10) || 0);
+            const [eH, eM] = eTime.split(':').map((v) => parseInt(v, 10) || 0);
+
+            const startMinutes = sH * 60 + sM;
+            const endMinutes = eH * 60 + eM;
+
+            if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+              status = 'ongoing';
+            } else if (currentMinutes < startMinutes) {
+              status = 'upcoming';
+            } else if (currentMinutes > endMinutes) {
+              status = 'completed';
+            }
+          }
 
           const courseCode = sess.courseCode || sess.subjectCode || 'CLASS';
           const courseName = sess.courseName || sess.subjectName || 'Course';
@@ -141,11 +162,9 @@ const LecturerDashboard: React.FC = () => {
             subjectName: courseName,
             room: room,
             building: sess.building || 'Campus',
-            startTime: sess.startTime ? sess.startTime.slice(0, 5) : '07:30',
-            endTime: sess.endTime ? sess.endTime.slice(0, 5) : '09:30',
-            timeFormatted: sess.timeRange || `${sess.startTime ? sess.startTime.slice(0, 5) : '07:30'} - ${
-              sess.endTime ? sess.endTime.slice(0, 5) : '09:30'
-            }`,
+            startTime: sTime,
+            endTime: eTime,
+            timeFormatted: sess.timeRange || `${sTime} - ${eTime}`,
             checkedInCount: present,
             totalCapacity: enrolled,
             status,

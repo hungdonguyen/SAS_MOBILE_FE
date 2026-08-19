@@ -37,7 +37,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // ─── Check-in flow ────────────────────────────────────────────────────────
   const [step, setStep] = useState<CheckInStep>('camera');
-  const [submittingMsg, setSubmittingMsg] = useState('Đang gửi dữ liệu điểm danh...');
+  const [submittingMsg, setSubmittingMsg] = useState('Submitting attendance data...');
   const [result, setResult] = useState<{
     success: boolean;
     title: string;
@@ -88,7 +88,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
       }
     }
 
-    // 1. Fetch immediately via low accuracy / cached / mock location (fastest on emulator and indoor)
+    // 1. Fetch immediately via low accuracy / cached / mock location
     Geolocation.getCurrentPosition(
       onGpsSuccess,
       () => {
@@ -130,14 +130,14 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
 
   // ── Called by FaceCamera when face auto-captured ──────────────────────────
   const handleFaceCaptured = async (data: { base64: string; uri: string }) => {
-    if (!session) { Alert.alert('Lỗi', 'Không tìm thấy thông tin buổi học.'); return; }
+    if (!session) { Alert.alert('Error', 'Class session not found.'); return; }
 
     let targetCoords = gpsCoordsRef.current;
 
     // If GPS is not ready yet, give it up to 3 seconds to resolve before failing
     if (!targetCoords) {
       setStep('submitting');
-      setSubmittingMsg('Đang lấy tọa độ GPS...');
+      setSubmittingMsg('Acquiring GPS coordinates...');
       for (let i = 0; i < 6; i++) {
         await new Promise<void>((resolve) => setTimeout(resolve, 500));
         if (gpsCoordsRef.current) {
@@ -150,18 +150,18 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
     if (!targetCoords) {
       setStep('camera');
       Alert.alert(
-        'GPS chưa sẵn sàng',
-        'Chưa nhận được tọa độ GPS. Vui lòng kiểm tra lại GPS hoặc Set Location trên máy ảo rồi thử lại.',
+        'GPS Not Ready',
+        'GPS coordinates not acquired yet. Please check device location services or set location in emulator and try again.',
         [
           {
-            text: 'Thử lại',
+            text: 'Retry',
             onPress: () => {
               cameraRef.current?.reset();
               requestGps();
             },
           },
           {
-            text: 'Hủy',
+            text: 'Cancel',
             style: 'cancel',
             onPress: () => cameraRef.current?.reset(),
           },
@@ -171,7 +171,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
     }
 
     setStep('submitting');
-    setSubmittingMsg('Đang gửi dữ liệu điểm danh lên server...');
+    setSubmittingMsg('Submitting attendance data to server...');
 
     try {
       const queued = await studentApi.submitCheckIn({
@@ -182,7 +182,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
       });
 
       const jobId = queued.jobId;
-      setSubmittingMsg('Đang xác minh Network IP, GPS và AI khuôn mặt...');
+      setSubmittingMsg('Verifying Network IP, GPS, and Face Biometrics...');
 
       let attempts = 0;
       const maxAttempts = 15;
@@ -195,8 +195,8 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
           setStep('result');
           setResult({
             success: false,
-            title: 'Quá thời gian chờ',
-            description: 'AI xử lý quá lâu. Vui lòng thử lại.',
+            title: 'Request Timed Out',
+            description: 'AI processing took too long. Please try again.',
           });
           return;
         }
@@ -210,9 +210,8 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
             setStep('result');
             setResult({
               success: true,
-              title: isLate ? 'Điểm danh muộn' : 'Điểm danh thành công!',
+              title: isLate ? 'Checked In (Late)' : 'Checked In Successfully!',
               statusText: isLate ? 'LATE' : 'PRESENT',
-              // Confidence might be inside result depending on how BullMQ returned it
               confidence: status.result?.confidence
                 ? Math.round(status.result.confidence * 100)
                 : 98,
@@ -222,36 +221,35 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
             
             const reason = status.failureReason || status.error || '';
             
-            // Map common job errors to Vietnamese (like the original Web app)
             const errorMap: Record<string, string> = {
-              'SESSION_NOT_FOUND': 'Không tìm thấy buổi học',
-              'NOT_ENROLLED': 'Bạn chưa đăng ký môn học này',
-              'IP_NOT_ALLOWED': 'IP mạng không được phép (ngoài mạng trường)',
-              'OUT_OF_RANGE': 'Vị trí GPS ngoài phạm vi phòng học',
-              'GPS_MISSING': 'Thiếu thông tin vị trí GPS',
-              'INVALID_COORDS': 'Tọa độ GPS không hợp lệ',
-              'ROOM_NOT_FOUND': 'Không tìm thấy dữ liệu tọa độ phòng học',
-              'LIVENESS_FAILED': 'Phát hiện ảnh giả / không phải người thật',
-              'LOW_SIMILARITY': 'Khuôn mặt không khớp với hồ sơ',
-              'FACE_NOT_FOUND': 'Không tìm thấy khuôn mặt trong ảnh',
-              'MULTIPLE_FACES': 'Phát hiện nhiều khuôn mặt trong ảnh',
-              'NOT_REGISTERED': 'Tài khoản chưa đăng ký khuôn mặt',
-              'FACE_NOT_REGISTERED': 'Tài khoản chưa đăng ký khuôn mặt',
-              'FACE_IMAGE_MISSING': 'Thiếu ảnh khuôn mặt',
-              'AI_ERROR': 'Lỗi xử lý AI nhận diện khuôn mặt',
-              'AiServiceUnavailableException': 'Dịch vụ AI hiện không khả dụng. Vui lòng thử lại sau',
-              'TIMEOUT': 'Hệ thống xử lý quá thời gian',
-              'UNKNOWN_ERROR': 'Lỗi không xác định'
+              'SESSION_NOT_FOUND': 'Class session not found',
+              'NOT_ENROLLED': 'You are not enrolled in this section',
+              'IP_NOT_ALLOWED': 'Network IP not allowed (outside campus network)',
+              'OUT_OF_RANGE': 'GPS location outside classroom geofence',
+              'GPS_MISSING': 'GPS location data missing',
+              'INVALID_COORDS': 'Invalid GPS coordinates',
+              'ROOM_NOT_FOUND': 'Classroom coordinates not configured',
+              'LIVENESS_FAILED': 'Anti-spoofing failed / non-live photo detected',
+              'LOW_SIMILARITY': 'Face does not match registered profile',
+              'FACE_NOT_FOUND': 'No face detected in photo',
+              'MULTIPLE_FACES': 'Multiple faces detected in photo',
+              'NOT_REGISTERED': 'Biometric profile not registered',
+              'FACE_NOT_REGISTERED': 'Biometric profile not registered',
+              'FACE_IMAGE_MISSING': 'Face capture image missing',
+              'AI_ERROR': 'AI Facial Recognition processing error',
+              'AiServiceUnavailableException': 'AI Service is currently unavailable. Please try again later',
+              'TIMEOUT': 'Processing timed out',
+              'UNKNOWN_ERROR': 'Unknown error',
             };
 
             setStep('result');
             setResult({
               success: false,
-              title: 'Xác minh thất bại',
-              description: errorMap[reason] || reason || 'Khuôn mặt không khớp hoặc phát hiện gian lận.',
+              title: 'Verification Failed',
+              description: errorMap[reason] || reason || 'Face verification failed or spoofing detected.',
             });
           } else {
-            setSubmittingMsg(`AI đang phân tích dữ liệu... (${attempts}s)`);
+            setSubmittingMsg(`AI is analyzing data... (${attempts}s)`);
           }
         } catch (pollErr) {
           if (attempts >= 5) {
@@ -259,15 +257,15 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
             setStep('result');
             setResult({
               success: false,
-              title: 'Lỗi kết nối',
+              title: 'Connection Error',
               description: getErrorMessage(pollErr),
             });
           }
         }
       }, 1500);
-      } catch (err) {
+    } catch (err) {
       setStep('camera');
-      Alert.alert('Lỗi', getErrorMessage(err), [
+      Alert.alert('Error', getErrorMessage(err), [
         { text: 'OK', onPress: () => cameraRef.current?.reset() }
       ]);
     }
@@ -304,7 +302,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.infoRow}>
               <AppIcon name="book-outline" size={20} color={result?.success ? '#059669' : '#DC2626'} />
               <View style={styles.infoTextContainer}>
-                <Text style={[styles.infoLabel, { color: result?.success ? '#047857' : '#F87171' }]}>Môn học</Text>
+                <Text style={[styles.infoLabel, { color: result?.success ? '#047857' : '#F87171' }]}>Subject</Text>
                 <Text style={[styles.infoValue, { color: result?.success ? '#064E3B' : '#450A0A' }]}>{session?.subjectName || '—'}</Text>
               </View>
             </View>
@@ -314,8 +312,8 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
             <View style={styles.infoRow}>
               <AppIcon name="time-outline" size={20} color={result?.success ? '#059669' : '#DC2626'} />
               <View style={styles.infoTextContainer}>
-                <Text style={[styles.infoLabel, { color: result?.success ? '#047857' : '#F87171' }]}>Thời gian</Text>
-                <Text style={[styles.infoValue, { color: result?.success ? '#064E3B' : '#450A0A' }]}>{new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}</Text>
+                <Text style={[styles.infoLabel, { color: result?.success ? '#047857' : '#F87171' }]}>Time</Text>
+                <Text style={[styles.infoValue, { color: result?.success ? '#064E3B' : '#450A0A' }]}>{new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}</Text>
               </View>
             </View>
           </View>
@@ -333,7 +331,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
                 activeOpacity={0.8}
               >
                 <AppIcon name="refresh-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.retryBtnText}>Thử lại</Text>
+                <Text style={styles.retryBtnText}>Try Again</Text>
               </TouchableOpacity>
             )}
             
@@ -344,7 +342,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
             >
               <AppIcon name="calendar-outline" size={20} color={result?.success ? '#2563EB' : '#64748B'} />
               <Text style={[styles.backHistoryBtnText, result?.success ? { color: '#2563EB' } : { color: '#64748B' }]}>
-                Về lịch sử điểm danh
+                Back to Attendance History
               </Text>
             </TouchableOpacity>
           </View>
@@ -360,13 +358,11 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <AppIcon name="chevron-back-outline" size={20} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Điểm danh khuôn mặt</Text>
+        <Text style={styles.headerTitle}>Face Attendance Check-In</Text>
         <View style={{ width: 32 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-
         {/* Face Camera — auto detect & capture, no button */}
         <View style={{ alignItems: 'center', marginVertical: 20 }}>
           <FaceCamera
@@ -377,7 +373,6 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
             facing="front"
           />
         </View>
-
       </ScrollView>
 
       {/* Submitting overlay */}
@@ -385,7 +380,7 @@ const StudentCheckInScreen: React.FC<Props> = ({ navigation, route }) => {
         <View style={styles.modalBackdrop}>
           <View style={styles.processingCard}>
             <ActivityIndicator size="large" color="#0D9488" />
-            <Text style={styles.processingTitle}>Đang xác minh điểm danh</Text>
+            <Text style={styles.processingTitle}>Verifying Attendance</Text>
             <Text style={styles.processingMsg}>{submittingMsg}</Text>
           </View>
         </View>

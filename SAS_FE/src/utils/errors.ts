@@ -39,33 +39,33 @@ export enum ErrorCode {
 }
 
 export const ERROR_MESSAGES: Record<string, string> = {
-  [ErrorCode.INVALID_CREDENTIALS]: 'Tên đăng nhập hoặc mật khẩu không chính xác.',
-  [ErrorCode.TOKEN_EXPIRED]: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-  [ErrorCode.ACCOUNT_LOCKED]: 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.',
-  [ErrorCode.UNAUTHORIZED]: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.',
-  [ErrorCode.FORBIDDEN]: 'Bạn không có quyền truy cập tài nguyên này.',
+  [ErrorCode.INVALID_CREDENTIALS]: 'Invalid username or password.',
+  [ErrorCode.TOKEN_EXPIRED]: 'Session expired. Please log in again.',
+  [ErrorCode.ACCOUNT_LOCKED]: 'Account is locked. Please contact the administrator.',
+  [ErrorCode.UNAUTHORIZED]: 'Invalid or expired session. Please log in again.',
+  [ErrorCode.FORBIDDEN]: 'You do not have permission to access this resource.',
 
-  [ErrorCode.SESSION_EXPIRED]: 'Buổi học đã kết thúc hoặc chưa bắt đầu.',
-  [ErrorCode.SESSION_NOT_FOUND]: 'Không tìm thấy buổi học.',
-  [ErrorCode.FACE_NOT_MATCHED]: 'Khuôn mặt không khớp. Vui lòng thử lại.',
-  [ErrorCode.FACE_NOT_REGISTERED]: 'Chưa đăng ký khuôn mặt. Vui lòng đăng ký trước khi điểm danh.',
-  [ErrorCode.LOCATION_REJECTED]: 'Vị trí của bạn nằm ngoài phạm vi phòng học.',
-  [ErrorCode.ALREADY_CHECKED_IN]: 'Bạn đã điểm danh cho buổi học này rồi.',
+  [ErrorCode.SESSION_EXPIRED]: 'Class session has ended or has not started.',
+  [ErrorCode.SESSION_NOT_FOUND]: 'Class session not found.',
+  [ErrorCode.FACE_NOT_MATCHED]: 'Face does not match. Please try again.',
+  [ErrorCode.FACE_NOT_REGISTERED]: 'Biometric face is not registered. Please register before check-in.',
+  [ErrorCode.LOCATION_REJECTED]: 'Your location is outside the classroom geofence.',
+  [ErrorCode.ALREADY_CHECKED_IN]: 'You have already checked in for this session.',
 
-  [ErrorCode.LIVENESS_FAILED]: 'Phát hiện ảnh giả / gian lận. Vui lòng sử dụng khuôn mặt thật.',
-  [ErrorCode.NO_FACE_DETECTED]: 'Không tìm thấy khuôn mặt trong ảnh.',
-  [ErrorCode.MULTIPLE_FACES_DETECTED]: 'Phát hiện nhiều khuôn mặt trong ảnh.',
+  [ErrorCode.LIVENESS_FAILED]: 'Anti-spoofing failed. Please use a live face.',
+  [ErrorCode.NO_FACE_DETECTED]: 'No face detected in the photo.',
+  [ErrorCode.MULTIPLE_FACES_DETECTED]: 'Multiple faces detected in the photo.',
 
-  [ErrorCode.FILE_TOO_LARGE]: 'Kích thước file vượt quá giới hạn cho phép.',
-  [ErrorCode.INVALID_FILE_TYPE]: 'Định dạng file không được hỗ trợ.',
-  [ErrorCode.VALIDATION_ERROR]: 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.',
+  [ErrorCode.FILE_TOO_LARGE]: 'File size exceeds the allowed limit.',
+  [ErrorCode.INVALID_FILE_TYPE]: 'Unsupported file format.',
+  [ErrorCode.VALIDATION_ERROR]: 'Invalid input data. Please check and try again.',
 
-  [ErrorCode.NETWORK_ERROR]: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
-  [ErrorCode.TIMEOUT]: 'Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.',
-  [ErrorCode.SERVER_ERROR]: 'Máy chủ gặp sự cố. Vui lòng thử lại sau.',
-  [ErrorCode.TOO_MANY_REQUESTS]: 'Bạn đã thao tác quá nhiều lần. Vui lòng đợi một lát rồi thử lại.',
-  [ErrorCode.NOT_FOUND]: 'Không tìm thấy tài nguyên yêu cầu.',
-  [ErrorCode.UNKNOWN]: 'Đã xảy ra lỗi không xác định.',
+  [ErrorCode.NETWORK_ERROR]: 'Unable to connect to server. Please check your network connection.',
+  [ErrorCode.TIMEOUT]: 'Request timed out. Please try again.',
+  [ErrorCode.SERVER_ERROR]: 'Server encountered an issue. Please try again later.',
+  [ErrorCode.TOO_MANY_REQUESTS]: 'Too many requests. Please wait a moment and try again.',
+  [ErrorCode.NOT_FOUND]: 'Requested resource not found.',
+  [ErrorCode.UNKNOWN]: 'An unexpected error occurred.',
 };
 
 function mapStatusToErrorCode(statusCode: number): string {
@@ -90,8 +90,14 @@ function mapStatusToErrorCode(statusCode: number): string {
 export function getErrorMessage(error: any): string {
   if (!error) return ERROR_MESSAGES[ErrorCode.UNKNOWN];
 
-  // Nếu là lỗi mạng (không kết nối được tới server)
-  if (error.code === 'ECONNABORTED' || error.message?.includes('Network Error')) {
+  // Nếu là lỗi mạng (không kết nối được tới server hoặc timeout)
+  if (
+    error.code === 'ECONNABORTED' ||
+    error.code === 'ERR_NETWORK' ||
+    error.message?.includes('Network Error') ||
+    error.message?.includes('Unable to connect') ||
+    (!error.response && error.request)
+  ) {
     return ERROR_MESSAGES[ErrorCode.NETWORK_ERROR];
   }
 
@@ -100,24 +106,30 @@ export function getErrorMessage(error: any): string {
     const statusCode = response.status;
     const body = response.data;
     
-    // 1. Nếu backend có trả về message cụ thể, ưu tiên lấy message đó
+    // Trích xuất message từ server
     const serverMessage = body?.error?.message || body?.message;
-    
-    // 2. Nếu không có message, xem có trả về mã code không
     const rawCode = body?.error?.code || body?.code || body?.errorCode;
+
+    // Chuẩn hóa lỗi 401 Invalid credentials
+    if (
+      statusCode === 401 &&
+      (serverMessage === 'Invalid credentials' || rawCode === 'INVALID_CREDENTIALS' || rawCode === 'UNAUTHORIZED')
+    ) {
+      return ERROR_MESSAGES[ErrorCode.INVALID_CREDENTIALS];
+    }
     
-    // 3. Ưu tiên dùng ERROR_MESSAGES mapping nếu rawCode khớp
+    // 1. Ưu tiên dùng ERROR_MESSAGES mapping nếu rawCode khớp
     if (rawCode && ERROR_MESSAGES[rawCode]) {
       return ERROR_MESSAGES[rawCode];
     }
     
-    // 4. Nếu backend trả về string message thuần túy, hiển thị thẳng
+    // 2. Nếu backend trả về string message thuần túy, hiển thị thẳng
     if (serverMessage) {
       if (typeof serverMessage === 'string') return serverMessage;
       if (Array.isArray(serverMessage) && serverMessage.length > 0) return serverMessage.join(', ');
     }
     
-    // 5. Fallback: suy đoán dựa vào HTTP Status Code
+    // 3. Fallback: suy đoán dựa vào HTTP Status Code
     const fallbackCode = mapStatusToErrorCode(statusCode);
     return ERROR_MESSAGES[fallbackCode];
   }

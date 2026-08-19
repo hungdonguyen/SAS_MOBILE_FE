@@ -18,45 +18,45 @@ const INITIAL_SUBJECTS: AdminSubjectItem[] = [
   {
     id: 'sub-1',
     code: 'WP301',
-    name: 'Lập Trình Web Nâng Cao',
+    name: 'Advanced Web Programming',
     credit: 3,
-    description: 'Phát triển ứng dụng Web Fullstack với NestJS và React',
+    description: 'Fullstack Web Application Development with NestJS and React',
     isActive: true,
     sectionsCount: 4,
   },
   {
     id: 'sub-2',
     code: 'MOB402',
-    name: 'Lập Trình Di Động Đa Nền Tảng',
+    name: 'Cross-Platform Mobile Development',
     credit: 3,
-    description: 'Xây dựng ứng dụng di động React Native & Flutter',
+    description: 'Mobile App Development with React Native & Flutter',
     isActive: true,
     sectionsCount: 3,
   },
   {
     id: 'sub-3',
     code: 'AI501',
-    name: 'Nhập Môn Thị Giác Máy Tính & AI',
+    name: 'Introduction to Computer Vision & AI',
     credit: 4,
-    description: 'Deep Learning, Face Recognition ArcFace và OpenCV',
+    description: 'Deep Learning, ArcFace Recognition, and OpenCV',
     isActive: true,
     sectionsCount: 2,
   },
   {
     id: 'sub-4',
     code: 'DB201',
-    name: 'Hệ Quản Trị Cơ Sở Dữ Liệu',
+    name: 'Database Management Systems',
     credit: 3,
-    description: 'PostgreSQL, PostGIS, pgvector và tối ưu hóa truy vấn',
+    description: 'PostgreSQL, PostGIS, pgvector, and Query Optimization',
     isActive: true,
     sectionsCount: 5,
   },
   {
     id: 'sub-5',
     code: 'NET101',
-    name: 'Mạng Máy Tính Cơ Bản',
+    name: 'Computer Networks Fundamentals',
     credit: 2,
-    description: 'Giao thức mạng TCP/IP, Định tuyến CIDR và Bảo mật',
+    description: 'TCP/IP Protocols, CIDR Routing, and Network Security',
     isActive: false,
     sectionsCount: 0,
   },
@@ -66,7 +66,7 @@ const INITIAL_SEMESTERS: AdminSemesterItem[] = [
   {
     id: 'sem-1',
     code: 'FA25',
-    semesterName: 'Học Kỳ 1 (2025 - 2026)',
+    semesterName: 'Semester 1 (2025 - 2026)',
     startDate: '2025-09-01',
     endDate: '2026-01-15',
     isActive: true,
@@ -76,7 +76,7 @@ const INITIAL_SEMESTERS: AdminSemesterItem[] = [
   {
     id: 'sem-2',
     code: 'SP26',
-    semesterName: 'Học Kỳ 2 (2025 - 2026)',
+    semesterName: 'Semester 2 (2025 - 2026)',
     startDate: '2026-02-01',
     endDate: '2026-06-30',
     isActive: false,
@@ -86,7 +86,7 @@ const INITIAL_SEMESTERS: AdminSemesterItem[] = [
   {
     id: 'sem-3',
     code: 'SU25',
-    semesterName: 'Học Kỳ Hè 2025',
+    semesterName: 'Summer Semester 2025',
     startDate: '2025-06-15',
     endDate: '2025-08-30',
     isActive: false,
@@ -138,7 +138,7 @@ const AdminSubjectsScreen: React.FC = () => {
 
   const handleAddSubject = () => {
     if (!subCode.trim() || !subName.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập Mã môn học và Tên môn học.');
+      Alert.alert('Missing Information', 'Please enter Subject Code and Name.');
       return;
     }
 
@@ -157,12 +157,12 @@ const AdminSubjectsScreen: React.FC = () => {
     setSubCode('');
     setSubName('');
     setSubDesc('');
-    Alert.alert('Thành Công', `Đã thêm môn học "${newItem.name}" (${newItem.code})`);
+    Alert.alert('Success', `Subject "${newItem.name}" (${newItem.code}) added successfully`);
   };
 
   const handleAddSemester = () => {
     if (!semName.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập Tên học kỳ.');
+      Alert.alert('Missing Information', 'Please enter Semester Name.');
       return;
     }
 
@@ -181,7 +181,7 @@ const AdminSubjectsScreen: React.FC = () => {
     setIsSemModalOpen(false);
     setSemName('');
     setSemCode('');
-    Alert.alert('Thành Công', `Đã tạo học kỳ "${newItem.semesterName}"`);
+    Alert.alert('Success', `Semester "${newItem.semesterName}" created successfully`);
   };
 
   const handleToggleSubjectActive = (id: string) => {
@@ -198,14 +198,14 @@ const AdminSubjectsScreen: React.FC = () => {
         status: sem.id === id ? 'active' : sem.status === 'active' ? 'closed' : sem.status,
       }))
     );
-    Alert.alert('Cập Nhật', 'Đã chuyển học kỳ này làm Học kỳ hiện tại của hệ thống.');
+    Alert.alert('Updated', 'Set this semester as the active system semester.');
   };
 
   const handleDeleteSubject = (id: string, name: string) => {
-    Alert.alert('Xóa Môn Học', `Bạn có chắc muốn xóa môn "${name}"?`, [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert('Delete Subject', `Are you sure you want to delete subject "${name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Xóa',
+        text: 'Delete',
         style: 'destructive',
         onPress: () => {
           setSubjects(subjects.filter((s) => s.id !== id));
@@ -223,8 +223,8 @@ const AdminSubjectsScreen: React.FC = () => {
             <Text style={styles.logoText}>M</Text>
           </View>
           <View>
-            <Text style={styles.brandTitle}>Môn Học & Học Kỳ</Text>
-            <Text style={styles.brandSubtitle}>Quản lý chương trình đào tạo & Kế hoạch học</Text>
+            <Text style={styles.brandTitle}>Subjects & Semesters</Text>
+            <Text style={styles.brandSubtitle}>Manage curriculum & academic calendar</Text>
           </View>
         </View>
 
@@ -237,7 +237,7 @@ const AdminSubjectsScreen: React.FC = () => {
         >
           <AppIcon name="add" size={18} color="#FFFFFF" />
           <Text style={styles.addButtonText}>
-            {activeTab === 'subjects' ? 'Thêm Môn' : 'Thêm Kỳ'}
+            {activeTab === 'subjects' ? 'Add Subject' : 'Add Semester'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -254,7 +254,7 @@ const AdminSubjectsScreen: React.FC = () => {
             color={activeTab === 'subjects' ? '#6366F1' : '#64748B'}
           />
           <Text style={[styles.tabButtonText, activeTab === 'subjects' && styles.tabButtonTextActive]}>
-            Môn Học ({subjects.length})
+            Subjects ({subjects.length})
           </Text>
         </TouchableOpacity>
 
@@ -268,7 +268,7 @@ const AdminSubjectsScreen: React.FC = () => {
             color={activeTab === 'semesters' ? '#6366F1' : '#64748B'}
           />
           <Text style={[styles.tabButtonText, activeTab === 'semesters' && styles.tabButtonTextActive]}>
-            Học Kỳ ({semesters.length})
+            Semesters ({semesters.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -278,7 +278,7 @@ const AdminSubjectsScreen: React.FC = () => {
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder={activeTab === 'subjects' ? 'Tìm môn học theo mã hoặc tên...' : 'Tìm học kỳ...'}
+          placeholder={activeTab === 'subjects' ? 'Search subject by code or name...' : 'Search semester...'}
         />
       </View>
 
@@ -294,7 +294,7 @@ const AdminSubjectsScreen: React.FC = () => {
                       <Text style={styles.codeText}>{sub.code}</Text>
                     </View>
                     <View style={styles.creditBadge}>
-                      <Text style={styles.creditText}>{sub.credit} Tín chỉ</Text>
+                      <Text style={styles.creditText}>{sub.credit} Credits</Text>
                     </View>
                   </View>
 
@@ -303,7 +303,7 @@ const AdminSubjectsScreen: React.FC = () => {
                     onPress={() => handleToggleSubjectActive(sub.id)}
                   >
                     <Text style={[styles.statusPillText, sub.isActive ? styles.statusTextActive : styles.statusTextInactive]}>
-                      {sub.isActive ? '● Đang mở' : '○ Tạm đóng'}
+                      {sub.isActive ? '● Active' : '○ Inactive'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -314,7 +314,7 @@ const AdminSubjectsScreen: React.FC = () => {
                 <View style={styles.cardBottomRow}>
                   <View style={styles.sectionsCountBadge}>
                     <AppIcon name="school-outline" size={14} color="#6366F1" />
-                    <Text style={styles.sectionsCountText}>{sub.sectionsCount || 0} Lớp học phần</Text>
+                    <Text style={styles.sectionsCountText}>{sub.sectionsCount || 0} Sections</Text>
                   </View>
 
                   <TouchableOpacity
@@ -322,7 +322,7 @@ const AdminSubjectsScreen: React.FC = () => {
                     onPress={() => handleDeleteSubject(sub.id, sub.name)}
                   >
                     <AppIcon name="trash-outline" size={14} color="#DC2626" />
-                    <Text style={styles.deleteText}>Xóa</Text>
+                    <Text style={styles.deleteText}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -330,7 +330,7 @@ const AdminSubjectsScreen: React.FC = () => {
           ) : (
             <View style={styles.emptyBox}>
               <AppIcon name="book-outline" size={36} color="#CBD5E1" />
-              <Text style={styles.emptyText}>Không tìm thấy môn học nào</Text>
+              <Text style={styles.emptyText}>No subjects found</Text>
             </View>
           )
         ) : (
@@ -351,30 +351,30 @@ const AdminSubjectsScreen: React.FC = () => {
                   {sem.isActive ? (
                     <View style={styles.currentActiveBadge}>
                       <AppIcon name="checkmark-circle" size={14} color="#16A34A" />
-                      <Text style={styles.currentActiveText}>Học Kỳ Hiện Tại</Text>
+                      <Text style={styles.currentActiveText}>Current Active Semester</Text>
                     </View>
                   ) : (
                     <TouchableOpacity
                       style={styles.activateBtn}
                       onPress={() => handleActivateSemester(sem.id)}
                     >
-                      <Text style={styles.activateBtnText}>Đặt làm hiện tại</Text>
+                      <Text style={styles.activateBtnText}>Set as Active</Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
                 <View style={styles.semesterDatesRow}>
                   <View style={styles.dateCol}>
-                    <Text style={styles.dateLabel}>Bắt đầu:</Text>
+                    <Text style={styles.dateLabel}>Start:</Text>
                     <Text style={styles.dateVal}>{sem.startDate}</Text>
                   </View>
                   <AppIcon name="arrow-forward" size={14} color="#94A3B8" />
                   <View style={styles.dateCol}>
-                    <Text style={styles.dateLabel}>Kết thúc:</Text>
+                    <Text style={styles.dateLabel}>End:</Text>
                     <Text style={styles.dateVal}>{sem.endDate}</Text>
                   </View>
                   <View style={styles.semSectionsBadge}>
-                    <Text style={styles.semSectionsText}>{sem.sectionsCount || 0} Lớp</Text>
+                    <Text style={styles.semSectionsText}>{sem.sectionsCount || 0} Sections</Text>
                   </View>
                 </View>
               </View>
@@ -382,7 +382,7 @@ const AdminSubjectsScreen: React.FC = () => {
           ) : (
             <View style={styles.emptyBox}>
               <AppIcon name="calendar-outline" size={36} color="#CBD5E1" />
-              <Text style={styles.emptyText}>Không tìm thấy học kỳ nào</Text>
+              <Text style={styles.emptyText}>No semesters found</Text>
             </View>
           )
         )}
@@ -392,9 +392,9 @@ const AdminSubjectsScreen: React.FC = () => {
       <Modal visible={isSubModalOpen} transparent animationType="fade" onRequestClose={() => setIsSubModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalHeaderTitle}>Thêm Môn Học Mới</Text>
+            <Text style={styles.modalHeaderTitle}>Add New Subject</Text>
 
-            <Text style={styles.inputLabel}>Mã Môn Học (Ví dụ: CS101, WP301):</Text>
+            <Text style={styles.inputLabel}>Subject Code (e.g., CS101, WP301):</Text>
             <TextInput
               style={styles.modalInput}
               value={subCode}
@@ -404,16 +404,16 @@ const AdminSubjectsScreen: React.FC = () => {
               autoCapitalize="characters"
             />
 
-            <Text style={styles.inputLabel}>Tên Môn Học:</Text>
+            <Text style={styles.inputLabel}>Subject Name:</Text>
             <TextInput
               style={styles.modalInput}
               value={subName}
               onChangeText={setSubName}
-              placeholder="Lập Trình Web Nâng Cao"
+              placeholder="Advanced Web Programming"
               placeholderTextColor="#94A3B8"
             />
 
-            <Text style={styles.inputLabel}>Số Tín Chỉ:</Text>
+            <Text style={styles.inputLabel}>Credits:</Text>
             <TextInput
               style={styles.modalInput}
               value={subCredit}
@@ -423,22 +423,22 @@ const AdminSubjectsScreen: React.FC = () => {
               keyboardType="numeric"
             />
 
-            <Text style={styles.inputLabel}>Mô Tả:</Text>
+            <Text style={styles.inputLabel}>Description:</Text>
             <TextInput
               style={[styles.modalInput, { minHeight: 60 }]}
               value={subDesc}
               onChangeText={setSubDesc}
-              placeholder="Nội dung tóm tắt môn học..."
+              placeholder="Course syllabus summary..."
               placeholderTextColor="#94A3B8"
               multiline
             />
 
             <View style={styles.modalActionsRow}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsSubModalOpen(false)}>
-                <Text style={styles.modalCancelText}>Hủy</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSaveBtn} onPress={handleAddSubject}>
-                <Text style={styles.modalSaveText}>Tạo Môn Học</Text>
+                <Text style={styles.modalSaveText}>Create Subject</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -449,18 +449,18 @@ const AdminSubjectsScreen: React.FC = () => {
       <Modal visible={isSemModalOpen} transparent animationType="fade" onRequestClose={() => setIsSemModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalHeaderTitle}>Thêm Học Kỳ Mới</Text>
+            <Text style={styles.modalHeaderTitle}>Add New Semester</Text>
 
-            <Text style={styles.inputLabel}>Tên Học Kỳ (Ví dụ: Học Kỳ 1 (2026 - 2027)):</Text>
+            <Text style={styles.inputLabel}>Semester Name (e.g., Semester 1 (2026 - 2027)):</Text>
             <TextInput
               style={styles.modalInput}
               value={semName}
               onChangeText={setSemName}
-              placeholder="Học Kỳ 1 (2026 - 2027)"
+              placeholder="Semester 1 (2026 - 2027)"
               placeholderTextColor="#94A3B8"
             />
 
-            <Text style={styles.inputLabel}>Mã Học Kỳ (Tùy chọn, ví dụ: FA26):</Text>
+            <Text style={styles.inputLabel}>Semester Code (Optional, e.g., FA26):</Text>
             <TextInput
               style={styles.modalInput}
               value={semCode}
@@ -470,7 +470,7 @@ const AdminSubjectsScreen: React.FC = () => {
               autoCapitalize="characters"
             />
 
-            <Text style={styles.inputLabel}>Ngày Bắt Đầu (YYYY-MM-DD):</Text>
+            <Text style={styles.inputLabel}>Start Date (YYYY-MM-DD):</Text>
             <TextInput
               style={styles.modalInput}
               value={semStart}
@@ -479,7 +479,7 @@ const AdminSubjectsScreen: React.FC = () => {
               placeholderTextColor="#94A3B8"
             />
 
-            <Text style={styles.inputLabel}>Ngày Kết Thúc (YYYY-MM-DD):</Text>
+            <Text style={styles.inputLabel}>End Date (YYYY-MM-DD):</Text>
             <TextInput
               style={styles.modalInput}
               value={semEnd}
@@ -490,10 +490,10 @@ const AdminSubjectsScreen: React.FC = () => {
 
             <View style={styles.modalActionsRow}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setIsSemModalOpen(false)}>
-                <Text style={styles.modalCancelText}>Hủy</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSaveBtn} onPress={handleAddSemester}>
-                <Text style={styles.modalSaveText}>Tạo Học Kỳ</Text>
+                <Text style={styles.modalSaveText}>Create Semester</Text>
               </TouchableOpacity>
             </View>
           </View>

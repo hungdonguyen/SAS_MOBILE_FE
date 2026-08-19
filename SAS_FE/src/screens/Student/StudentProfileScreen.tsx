@@ -83,24 +83,24 @@ const StudentProfileScreen: React.FC = () => {
     if (!trimmed) {
       apiConfig.resetDefault();
       setIsIpModalVisible(false);
-      Alert.alert('Reset Thành Công', `Đã chuyển về URL mặc định: ${apiConfig.getBaseUrl()}`);
+      Alert.alert('Reset Successful', `Restored default URL: ${apiConfig.getBaseUrl()}`);
       return;
     }
 
     try {
       apiConfig.setBaseUrl(trimmed);
       setIsIpModalVisible(false);
-      Alert.alert('Lưu Thành Công', `Backend Host mới: ${apiConfig.getBaseUrl()}`);
+      Alert.alert('Saved Successfully', `New Backend Host: ${apiConfig.getBaseUrl()}`);
     } catch {
-      Alert.alert('Lỗi', 'Không thể lưu địa chỉ IP.');
+      Alert.alert('Error', 'Could not save IP address.');
     }
   };
 
   const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất tài khoản?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Đăng xuất',
+        text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
           await studentApi.logout();
@@ -110,7 +110,7 @@ const StudentProfileScreen: React.FC = () => {
     ]);
   };
 
-  const initials = (user?.fullName || user?.username || 'SV')
+  const initials = (user?.fullName || user?.username || 'ST')
     .split(' ')
     .map((w: string) => w[0])
     .join('')
@@ -125,8 +125,8 @@ const StudentProfileScreen: React.FC = () => {
       >
         {/* Header Title */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Hồ Sơ Sinh Viên</Text>
-          <Text style={styles.headerSubtitle}>Quản lý tài khoản & Nhận diện khuôn mặt</Text>
+          <Text style={styles.headerTitle}>Student Profile</Text>
+          <Text style={styles.headerSubtitle}>Manage account & biometric face recognition</Text>
         </View>
 
         {/* Profile Card */}
@@ -136,11 +136,11 @@ const StudentProfileScreen: React.FC = () => {
               <Text style={styles.avatarInitials}>{initials}</Text>
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{user?.fullName || user?.username || 'Sinh Viên'}</Text>
-              <Text style={styles.userSub}>MSSV: {user?.username || '—'}</Text>
+              <Text style={styles.userName}>{user?.fullName || user?.username || 'Student'}</Text>
+              <Text style={styles.userSub}>ID: {user?.username || '—'}</Text>
               <Text style={styles.userEmail}>{user?.email || `${user?.username || 'stu'}@student.edu.vn`}</Text>
               <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>🎓 Sinh Viên Chính Quy</Text>
+                <Text style={styles.roleText}>🎓 Regular Student</Text>
               </View>
             </View>
           </View>
@@ -152,7 +152,7 @@ const StudentProfileScreen: React.FC = () => {
             <View style={styles.sectionIconBadge}>
               <AppIcon name="shield-checkmark-outline" size={18} color="#2563EB" />
             </View>
-            <Text style={styles.sectionTitle}>Xác Thực Sinh Trắc Học (Face AI)</Text>
+            <Text style={styles.sectionTitle}>Biometric Verification (Face AI)</Text>
           </View>
 
           <View style={styles.biometricContent}>
@@ -172,10 +172,10 @@ const StudentProfileScreen: React.FC = () => {
                 <View style={styles.faceStatusInfo}>
                   <View style={styles.statusBadgeSuccess}>
                     <AppIcon name="checkmark-circle" size={14} color="#16A34A" />
-                    <Text style={styles.statusTextSuccess}>Đã Đăng Ký Khuôn Mặt</Text>
+                    <Text style={styles.statusTextSuccess}>Face Biometrics Registered</Text>
                   </View>
                   <Text style={styles.faceDesc}>
-                    Vector 512 chiều ArcFace đã sẵn sàng để điểm danh 3 lớp bảo mật.
+                    512D ArcFace biometric embedding is active for 3-factor attendance check-in.
                   </Text>
                 </View>
               </View>
@@ -183,17 +183,17 @@ const StudentProfileScreen: React.FC = () => {
               <View style={styles.faceUnregisteredBox}>
                 <View style={styles.statusBadgeWarning}>
                   <AppIcon name="alert-circle" size={14} color="#D97706" />
-                  <Text style={styles.statusTextWarning}>Chưa Đăng Ký Khuôn Mặt</Text>
+                  <Text style={styles.statusTextWarning}>Face Not Registered</Text>
                 </View>
                 <Text style={styles.faceUnregisteredDesc}>
-                  Bạn cần đăng ký khuôn mặt để có thể thực hiện điểm danh tại lớp học.
+                  You must register your face biometrics to check in for classes.
                 </Text>
                 <TouchableOpacity
                   style={styles.registerNowButton}
                   onPress={() => navigation.navigate('StudentFaceRegister')}
                 >
                   <AppIcon name="camera" size={16} color="#FFFFFF" />
-                  <Text style={styles.registerNowText}>Đăng Ký Khuôn Mặt Ngay</Text>
+                  <Text style={styles.registerNowText}>Register Face Now</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -206,25 +206,25 @@ const StudentProfileScreen: React.FC = () => {
             <View style={styles.sectionIconBadge}>
               <AppIcon name="bar-chart-outline" size={18} color="#2563EB" />
             </View>
-            <Text style={styles.sectionTitle}>Tổng Quan Chuyên Cần</Text>
+            <Text style={styles.sectionTitle}>Attendance Overview</Text>
           </View>
 
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
               <Text style={styles.statVal}>{stats.rate}</Text>
-              <Text style={styles.statLbl}>Tỷ Lệ Đi Học</Text>
+              <Text style={styles.statLbl}>Attendance Rate</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statVal, { color: '#16A34A' }]}>{stats.present}</Text>
-              <Text style={styles.statLbl}>Đúng Giờ</Text>
+              <Text style={styles.statLbl}>On Time</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statVal, { color: '#D97706' }]}>{stats.late}</Text>
-              <Text style={styles.statLbl}>Đi Muộn</Text>
+              <Text style={styles.statLbl}>Late</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statVal, { color: '#DC2626' }]}>{stats.absent}</Text>
-              <Text style={styles.statLbl}>Vắng Mặt</Text>
+              <Text style={styles.statLbl}>Absent</Text>
             </View>
           </View>
         </View>
@@ -235,7 +235,7 @@ const StudentProfileScreen: React.FC = () => {
             <View style={styles.sectionIconBadge}>
               <AppIcon name="settings-outline" size={18} color="#2563EB" />
             </View>
-            <Text style={styles.sectionTitle}>Cấu Hình Kết Nối & Hệ Thống</Text>
+            <Text style={styles.sectionTitle}>Connection & System Settings</Text>
           </View>
 
           <TouchableOpacity
@@ -264,8 +264,8 @@ const StudentProfileScreen: React.FC = () => {
             <View style={styles.settingLeft}>
               <AppIcon name="calendar-outline" size={18} color="#64748B" />
               <View style={styles.settingTexts}>
-                <Text style={styles.settingTitle}>Lịch Sử Điểm Danh</Text>
-                <Text style={styles.settingDesc}>Xem chi tiết các ca học đã điểm danh</Text>
+                <Text style={styles.settingTitle}>Attendance History</Text>
+                <Text style={styles.settingDesc}>View detailed attendance history for all sessions</Text>
               </View>
             </View>
             <AppIcon name="chevron-forward-outline" size={16} color="#94A3B8" />
@@ -275,7 +275,7 @@ const StudentProfileScreen: React.FC = () => {
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <AppIcon name="log-out-outline" size={18} color="#DC2626" />
-          <Text style={styles.logoutText}>Đăng Xuất Tài Khoản</Text>
+          <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
         <Text style={styles.versionText}>Smart Attendance System v2.0 • Build 2026</Text>
@@ -290,9 +290,9 @@ const StudentProfileScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Cấu Hình Backend Host</Text>
+            <Text style={styles.modalTitle}>Backend Host Configuration</Text>
             <Text style={styles.modalDesc}>
-              Nhập IP máy chủ Backend (Ví dụ: http://192.168.1.100:3001 hoặc 10.0.2.2:3001)
+              Enter Backend Server IP (e.g., http://192.168.1.13:3001 or http://10.0.2.2:3001)
             </Text>
 
             <TextInput
@@ -310,10 +310,10 @@ const StudentProfileScreen: React.FC = () => {
                 style={styles.modalCancelBtn}
                 onPress={() => setIsIpModalVisible(false)}
               >
-                <Text style={styles.modalCancelText}>Hủy</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveIp}>
-                <Text style={styles.modalSaveText}>Lưu Cài Đặt</Text>
+                <Text style={styles.modalSaveText}>Save Settings</Text>
               </TouchableOpacity>
             </View>
           </View>

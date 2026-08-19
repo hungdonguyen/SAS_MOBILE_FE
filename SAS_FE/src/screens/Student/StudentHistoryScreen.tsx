@@ -84,8 +84,8 @@ const StudentHistoryScreen: React.FC = () => {
         <SafeAreaView edges={['top']} />
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.headerTitle}>Lịch sử điểm danh</Text>
-            <Text style={styles.headerSubtitle}>Xem lại các buổi đã điểm danh</Text>
+            <Text style={styles.headerTitle}>Attendance History</Text>
+            <Text style={styles.headerSubtitle}>Review all your past attendance records</Text>
           </View>
 
         </View>
@@ -108,25 +108,25 @@ const StudentHistoryScreen: React.FC = () => {
           <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.statCard}>
             <AppIcon name="calendar-outline" size={20} color="rgba(255,255,255,0.8)" />
             <Text style={styles.statVal}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Tổng</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </LinearGradient>
 
           <LinearGradient colors={['#22c55e', '#16a34a']} style={styles.statCard}>
             <AppIcon name="checkmark-circle-outline" size={20} color="rgba(255,255,255,0.8)" />
             <Text style={styles.statVal}>{stats.present}</Text>
-            <Text style={styles.statLabel}>Có mặt</Text>
+            <Text style={styles.statLabel}>Present</Text>
           </LinearGradient>
 
           <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.statCard}>
             <AppIcon name="time-outline" size={20} color="rgba(255,255,255,0.8)" />
             <Text style={styles.statVal}>{stats.late}</Text>
-            <Text style={styles.statLabel}>Đi trễ</Text>
+            <Text style={styles.statLabel}>Late</Text>
           </LinearGradient>
 
           <LinearGradient colors={['#ef4444', '#dc2626']} style={styles.statCard}>
             <AppIcon name="close-circle-outline" size={20} color="rgba(255,255,255,0.8)" />
             <Text style={styles.statVal}>{stats.absent}</Text>
-            <Text style={styles.statLabel}>Vắng</Text>
+            <Text style={styles.statLabel}>Absent</Text>
           </LinearGradient>
         </View>
 
@@ -137,7 +137,7 @@ const StudentHistoryScreen: React.FC = () => {
             <AppIcon name="chevron-down-outline" size={16} color={theme.colors.textSecondary} />
           </View>
           <View style={styles.dummySelect}>
-            <Text style={styles.dummySelectText}>Mới nhất</Text>
+            <Text style={styles.dummySelectText}>Latest</Text>
             <AppIcon name="chevron-down-outline" size={16} color={theme.colors.textSecondary} />
           </View>
         </View>
@@ -147,10 +147,10 @@ const StudentHistoryScreen: React.FC = () => {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
             {(['all', 'present', 'late', 'absent'] as const).map((key) => {
               const isActive = activeFilter === key;
-              let label = 'Tất cả';
-              if (key === 'present') label = 'Có mặt';
-              if (key === 'late') label = 'Đi trễ';
-              if (key === 'absent') label = 'Vắng mặt';
+              let label = 'All';
+              if (key === 'present') label = 'Present';
+              if (key === 'late') label = 'Late';
+              if (key === 'absent') label = 'Absent';
               
               return (
                 <TouchableOpacity
@@ -181,10 +181,10 @@ const StudentHistoryScreen: React.FC = () => {
         ) : errorMsg ? (
           <View style={styles.errorBox}>
             <AppIcon name="alert-circle-outline" size={32} color="#EF4444" />
-            <Text style={styles.errorTitle}>Lỗi tải dữ liệu</Text>
+            <Text style={styles.errorTitle}>Failed to Load Data</Text>
             <Text style={styles.errorText}>{errorMsg}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={() => fetchHistory()}>
-              <Text style={styles.retryBtnText}>Thử lại</Text>
+              <Text style={styles.retryBtnText}>Try Again</Text>
             </TouchableOpacity>
           </View>
         ) : filteredList.length === 0 ? (
@@ -192,8 +192,8 @@ const StudentHistoryScreen: React.FC = () => {
             <View style={styles.emptyIconWrap}>
               <AppIcon name="file-tray-outline" size={36} color={theme.colors.textMuted} />
             </View>
-            <Text style={styles.emptyTitle}>Không có dữ liệu</Text>
-            <Text style={styles.emptyDesc}>Chưa có bản ghi điểm danh nào phù hợp.</Text>
+            <Text style={styles.emptyTitle}>No Attendance Records</Text>
+            <Text style={styles.emptyDesc}>No attendance records match your filter.</Text>
           </View>
         ) : (
           <View style={styles.listContainer}>
@@ -207,7 +207,7 @@ const StudentHistoryScreen: React.FC = () => {
               const statusColor = isPresent ? '#15803d' : isLate ? '#b45309' : '#991b1b';
               const statusBg = isPresent ? '#d1fae5' : isLate ? '#fef3c7' : '#fee2e2';
               const statusDot = isPresent ? '#22c55e' : isLate ? '#f59e0b' : '#ef4444';
-              const statusLabel = isPresent ? 'Có mặt' : isLate ? 'Đi trễ' : isAbsent ? 'Vắng mặt' : isExcused ? 'Có phép' : status;
+              const statusLabel = isPresent ? 'Present' : isLate ? 'Late' : isAbsent ? 'Absent' : isExcused ? 'Excused' : status;
 
               return (
                 <View key={item.id} style={styles.recordCard}>

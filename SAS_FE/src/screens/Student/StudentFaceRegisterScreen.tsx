@@ -56,7 +56,7 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <AppIcon name="chevron-back-outline" size={20} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Đăng ký khuôn mặt</Text>
+        <Text style={styles.headerTitle}>Face Biometric Registration</Text>
         <View style={{ width: 32 }} />
       </View>
 
@@ -69,18 +69,18 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.guideIconWrap}>
                 <AppIcon name="scan-outline" size={42} color="#0D9488" />
               </View>
-              <Text style={styles.guideTitle}>Đăng ký nhận diện khuôn mặt</Text>
+              <Text style={styles.guideTitle}>Register Face Biometrics</Text>
               <Text style={styles.guideSubtitle}>
-                Hệ thống sử dụng AI InsightFace + MiniFASNetV2 để xác minh danh tính khi điểm danh.
-                Ảnh sẽ được mã hóa AES-256-GCM và lưu trữ bảo mật.
+                The system uses InsightFace + MiniFASNetV2 AI models to verify attendance.
+                Your photo will be encrypted with AES-256-GCM and stored securely.
               </Text>
 
               <View style={styles.stepList}>
                 {[
-                  { icon: 'bulb-outline', text: 'Ngồi ở nơi đủ ánh sáng, không có bóng đổ' },
-                  { icon: 'eye-outline', text: 'Nhìn thẳng vào camera, không nghiêng mặt' },
-                  { icon: 'happy-outline', text: 'Biểu cảm bình thường, không đội mũ hay đeo kính' },
-                  { icon: 'flash-outline', text: 'Ứng dụng tự động phát hiện và chụp ảnh — không cần bấm nút' },
+                  { icon: 'bulb-outline', text: 'Sit in a well-lit area with no harsh shadows' },
+                  { icon: 'eye-outline', text: 'Look straight into the camera without tilting' },
+                  { icon: 'happy-outline', text: 'Neutral facial expression, remove hats or sunglasses' },
+                  { icon: 'flash-outline', text: 'The camera will auto-detect and capture your face automatically' },
                 ].map((item, i) => (
                   <View key={i} style={styles.stepItem}>
                     <View style={styles.stepIconWrap}>
@@ -96,7 +96,7 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => setStep('camera')}
                 activeOpacity={0.85}>
                 <AppIcon name="scan-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.startBtnText}>Bắt đầu đăng ký</Text>
+                <Text style={styles.startBtnText}>Start Face Registration</Text>
               </TouchableOpacity>
             </View>
 
@@ -105,7 +105,7 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
               <View style={styles.warningBox}>
                 <AppIcon name="information-circle-outline" size={16} color="#D97706" />
                 <Text style={styles.warningText}>
-                  Bạn đã có dữ liệu khuôn mặt. Đăng ký mới sẽ thay thế ảnh cũ.
+                  You already have registered face data. Re-registering will replace your previous biometric photo.
                 </Text>
               </View>
             )}
@@ -115,9 +115,9 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
         {/* Camera step — FaceCamera handles everything automatically */}
         {step === 'camera' && (
           <View style={styles.cameraCard}>
-            <Text style={styles.cameraTitle}>📸 Đặt khuôn mặt vào khung hình</Text>
+            <Text style={styles.cameraTitle}>📸 Position your face inside the frame</Text>
             <Text style={styles.cameraSubtitle}>
-              AI sẽ tự động nhận diện và chụp ảnh. Không cần bấm nút.
+              AI will automatically detect and capture. No button press needed.
             </Text>
             <FaceCamera
               onCapture={handleFaceCaptured}
@@ -130,7 +130,7 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
               style={styles.cancelBtn}
               onPress={() => setStep('guide')}
               activeOpacity={0.7}>
-              <Text style={styles.cancelBtnText}>← Quay lại hướng dẫn</Text>
+              <Text style={styles.cancelBtnText}>← Back to Guide</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -140,9 +140,9 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.modalBackdrop}>
             <View style={styles.uploadingCard}>
               <ActivityIndicator size="large" color="#0D9488" />
-              <Text style={styles.uploadingTitle}>Đang đăng ký khuôn mặt...</Text>
+              <Text style={styles.uploadingTitle}>Registering Face Biometrics...</Text>
               <Text style={styles.uploadingSubtitle}>
-                AI đang xử lý và mã hóa ảnh của bạn. Vui lòng chờ.
+                AI is processing and encrypting your biometric data. Please wait.
               </Text>
             </View>
           </View>
@@ -154,15 +154,15 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.successIconWrap}>
               <AppIcon name="checkmark-circle-outline" size={56} color="#059669" />
             </View>
-            <Text style={styles.resultTitle}>Đăng ký thành công! 🎉</Text>
+            <Text style={styles.resultTitle}>Registration Successful! 🎉</Text>
             <Text style={styles.resultDesc}>
-              Khuôn mặt đã được mã hóa và lưu trữ bảo mật. Bạn có thể điểm danh bằng khuôn mặt ngay bây giờ.
+              Your biometric face data is encrypted and saved securely. You can now use facial check-in for attendance.
             </Text>
             <TouchableOpacity
               style={styles.doneBtn}
               onPress={() => navigation.replace('StudentHome')}
               activeOpacity={0.85}>
-              <Text style={styles.doneBtnText}>Hoàn tất</Text>
+              <Text style={styles.doneBtnText}>Complete</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -173,20 +173,20 @@ const StudentFaceRegisterScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.errorIconWrap}>
               <AppIcon name="close-circle" size={56} color="#DC2626" />
             </View>
-            <Text style={styles.resultTitle}>Đăng ký thất bại</Text>
+            <Text style={styles.resultTitle}>Registration Failed</Text>
             <Text style={styles.resultDesc}>{errorMsg}</Text>
             <View style={styles.errorBtns}>
               <TouchableOpacity
                 style={styles.retryBtn}
                 onPress={() => setStep('camera')}
                 activeOpacity={0.85}>
-                <Text style={styles.retryBtnText}>Thử lại</Text>
+                <Text style={styles.retryBtnText}>Try Again</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.backBtn2}
                 onPress={() => navigation.goBack()}
                 activeOpacity={0.85}>
-                <Text style={styles.backBtn2Text}>Quay lại</Text>
+                <Text style={styles.backBtn2Text}>Go Back</Text>
               </TouchableOpacity>
             </View>
           </View>

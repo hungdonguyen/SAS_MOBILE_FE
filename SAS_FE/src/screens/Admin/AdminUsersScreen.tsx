@@ -446,7 +446,7 @@ const AdminUsersScreen: React.FC = () => {
               <Text style={styles.inputLabel}>Full Name *</Text>
               <TextInput
                 style={styles.formInput}
-                placeholder="e.g. Nguyễn Văn A"
+                placeholder="e.g. John Doe"
                 placeholderTextColor="#94A3B8"
                 value={newFullName}
                 onChangeText={setNewFullName}

@@ -69,7 +69,7 @@ const ClassesListScreen: React.FC<ClassesListScreenProps> = ({ navigation }) => 
         const schedules: any[] = sec.schedules || sec.sectionSchedules || [];
         const rooms = Array.from(
           new Set(schedules.map((s) => s.roomCode).filter(Boolean))
-        ).join(', ') || 'Phòng B4-101 (B4)';
+        ).join(', ') || 'Room B4-101 (B4)';
 
         const scheduleFormatted = schedules.length > 0
           ? schedules

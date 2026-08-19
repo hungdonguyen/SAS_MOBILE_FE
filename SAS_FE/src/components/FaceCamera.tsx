@@ -196,7 +196,7 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         capturedRef.current = false;
         setCaptured(false);
         setFaceStatus('none');
-        Alert.alert('Lỗi chụp ảnh', 'Không thể chụp ảnh. Vui lòng thử lại.');
+        Alert.alert('Capture Error', 'Could not capture photo. Please try again.');
       }
     }, [isProcessing, onCapture]);
 
@@ -325,32 +325,32 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
     const getWarning = (): string | null => {
       switch (faceStatus) {
         case 'none':
-          return 'Không tìm thấy khuôn mặt';
+          return 'No face detected';
         case 'too_close':
-          return 'Quá gần — lùi ra xa hơn';
+          return 'Too close — move further back';
         case 'too_far':
-          return 'Quá xa — lại gần hơn';
+          return 'Too far — move closer';
         case 'off_center':
-          return 'Căn khuôn mặt vào giữa khung và nhìn thẳng';
+          return 'Center your face and look straight';
         default:
           return null;
       }
     };
 
     const getStatusText = () => {
-      if (isProcessing) return 'Đang xử lý AI...';
-      if (captured) return '✓ Đã chụp ảnh!';
+      if (isProcessing) return 'Processing AI...';
+      if (captured) return '✓ Photo Captured!';
       switch (faceStatus) {
         case 'good':
-          return countdown !== null ? `Giữ nguyên... ${countdown}s` : 'Khuôn mặt OK!';
+          return countdown !== null ? `Hold steady... ${countdown}s` : 'Face OK!';
         case 'too_close':
-          return 'Lùi ra xa hơn';
+          return 'Move further back';
         case 'too_far':
-          return 'Lại gần hơn';
+          return 'Move closer';
         case 'off_center':
-          return 'Căn giữa khuôn mặt & nhìn thẳng';
+          return 'Center face & look straight';
         default:
-          return 'Đặt khuôn mặt vào khung hình';
+          return 'Position face inside the frame';
       }
     };
 
@@ -365,9 +365,9 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
       return (
         <View style={styles.centeredState}>
           <AppIcon name="camera-outline" size={44} color="#94A3B8" />
-          <Text style={styles.errorTitle}>Chưa có quyền Camera</Text>
+          <Text style={styles.errorTitle}>Camera Permission Required</Text>
           <Text style={styles.errorSub}>
-            Vào Settings → Apps → SAS Mobile → Permissions → Camera để bật.
+            Go to Settings → Apps → SAS Mobile → Permissions → Camera to enable.
           </Text>
         </View>
       );
@@ -377,9 +377,9 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
       return (
         <View style={styles.centeredState}>
           <AppIcon name="camera-outline" size={44} color="#94A3B8" />
-          <Text style={styles.errorTitle}>Không tìm thấy camera</Text>
+          <Text style={styles.errorTitle}>No Camera Found</Text>
           <Text style={{textAlign: 'center', marginTop: 10, color: '#64748B'}}>
-            Vui lòng kiểm tra lại kết nối camera (DroidCam) hoặc cấu hình Emulator.
+            Please check your camera connection (DroidCam) or Emulator settings.
           </Text>
         </View>
       );
@@ -431,7 +431,7 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
                 <AppIcon name="checkmark-circle-outline" size={52} color="#10B981" />
               )}
               <Text style={styles.overlayText}>
-                {isProcessing ? 'Đang phân tích AI...' : 'Đã chụp ✓'}
+                {isProcessing ? 'Analyzing AI...' : 'Captured ✓'}
               </Text>
             </View>
           )}
@@ -463,12 +463,12 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
         <View style={styles.tipsBox}>
           <View style={styles.tipsHeader}>
             <AppIcon name="bulb-outline" size={14} color="#D97706" />
-            <Text style={styles.tipsTitle}>Lưu ý</Text>
+            <Text style={styles.tipsTitle}>Tips</Text>
           </View>
           {[
-            'Đảm bảo ánh sáng tốt, không bóng đổ',
-            'Nhìn thẳng, không nghiêng mặt hay đội mũ',
-            'Ứng dụng tự động chụp — không cần bấm nút',
+            'Ensure good lighting without harsh shadows',
+            'Look straight, do not tilt head or wear hats',
+            'Auto-capture enabled — no button press needed',
           ].map((tip, i) => (
             <Text key={i} style={styles.tipText}>
               • {tip}

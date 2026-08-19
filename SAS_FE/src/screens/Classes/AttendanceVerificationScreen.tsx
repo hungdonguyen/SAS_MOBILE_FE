@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AppIcon from '../../components/Icon/AppIcon';
 import { studentApi } from '../../services/studentApi';
+import { lecturerAttendanceService } from '../../api/services/lecturerAttendanceService';
 
 interface RouteParams {
   student?: {
@@ -26,8 +27,11 @@ interface RouteParams {
     device?: string;
     attendanceId?: string;
     method?: string;
-    confidence?: number;
+    confidence?: number | null;
     checkInPhoto?: string;
+    ipAddress?: string | null;
+    note?: string | null;
+    isOverridden?: boolean;
   };
   sectionId?: string;
   sessionId?: string;
@@ -53,7 +57,7 @@ const AttendanceVerificationScreen: React.FC = () => {
   const [checkInImage, setCheckInImage] = useState<string | null>(student.checkInPhoto || null);
   const [loadingImg, setLoadingImg] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<string>(student.status || 'present');
-  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideReason, setOverrideReason] = useState(student.note || '');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -90,27 +94,62 @@ const AttendanceVerificationScreen: React.FC = () => {
     }
   }, [student.attendanceId, student.id]);
 
-  const confidenceScore = student.confidence ?? 98.4;
-  const isHighConfidence = confidenceScore >= 80;
+  // Determine check-in modality
+  const isAIMethod = student.method === 'AI' || student.method === 'SELF_CHECKIN';
+  const isManualMethod = student.method === 'Manual' || student.method === 'MANUAL';
+  const isAbsent = student.status === 'absent' || (!student.attendanceId && student.status !== 'present' && student.status !== 'late');
+
+  // Real confidence score: backend returns float in [0.0, 1.0] (e.g. 0.90 -> 90.0%)
+  const hasRealConfidence = isAIMethod && typeof student.confidence === 'number' && student.confidence > 0;
+  const confidenceScore = hasRealConfidence
+    ? (student.confidence! <= 1.0 ? student.confidence! * 100 : student.confidence!)
+    : null;
+  const isHighConfidence = confidenceScore !== null ? confidenceScore >= 70 : false;
 
   const handleSaveOverride = async () => {
     if (!overrideReason.trim() && currentStatus !== student.status) {
-      Alert.alert('Yêu Cầu Lý Do', 'Vui lòng nhập lý do ghi đè hoặc chỉnh sửa điểm danh của sinh viên.');
+      Alert.alert('Reason Required', 'Please provide a reason for overriding or adjusting attendance status.');
       return;
     }
 
     setSaving(true);
     try {
-      // Simulate API call to PATCH /attendance/:attendanceId
-      await new Promise((resolve) => setTimeout(() => resolve(null), 800));
-      Alert.alert('Thành Công', `Đã cập nhật trạng thái của ${student.studentName} thành "${currentStatus.toUpperCase()}"`, [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
-    } catch {
-      Alert.alert('Lỗi', 'Không thể lưu trạng thái điểm danh.');
+      const reason = overrideReason.trim() || 'Lecturer manually adjusted attendance status';
+
+      if (student.attendanceId) {
+        // Update existing attendance record
+        await lecturerAttendanceService.singleOverrideAttendance(student.attendanceId, {
+          status: currentStatus as any,
+          reason,
+        });
+      } else if (params.sessionId) {
+        // Create / batch override for student without attendance record
+        await lecturerAttendanceService.batchOverrideAttendance(params.sessionId, {
+          records: [
+            {
+              studentId: student.id,
+              status: currentStatus as any,
+              reason,
+            },
+          ],
+        });
+      } else {
+        throw new Error('Missing sessionId or attendanceId.');
+      }
+
+      Alert.alert(
+        'Update Successful',
+        `Updated status for ${student.studentName} to "${currentStatus.toUpperCase()}".`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ],
+      );
+    } catch (err: any) {
+      console.log('Error saving attendance override:', err);
+      Alert.alert('Save Failed', err.message || 'Could not save attendance status to server.');
     } finally {
       setSaving(false);
     }
@@ -124,7 +163,7 @@ const AttendanceVerificationScreen: React.FC = () => {
           <AppIcon name="arrow-back" size={20} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.navTitleContainer}>
-          <Text style={styles.navTitle}>Chi Tiết Ảnh Điểm Danh AI</Text>
+          <Text style={styles.navTitle}>AI Attendance Verification Details</Text>
           <Text style={styles.navSubtitle}>{student.studentName} • {student.mssv}</Text>
         </View>
         <View style={{ width: 40 }} />
@@ -135,7 +174,7 @@ const AttendanceVerificationScreen: React.FC = () => {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <AppIcon name="camera-outline" size={18} color="#0D9488" />
-            <Text style={styles.cardTitle}>Ảnh Chụp Lúc Điểm Danh</Text>
+            <Text style={styles.cardTitle}>Check-In Capture Photo</Text>
           </View>
 
           <View style={styles.singlePhotoContainer}>
@@ -143,52 +182,125 @@ const AttendanceVerificationScreen: React.FC = () => {
               {loadingImg ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#0D9488" />
-                  <Text style={styles.loadingText}>Đang tải ảnh điểm danh...</Text>
+                  <Text style={styles.loadingText}>Loading check-in photo...</Text>
                 </View>
               ) : checkInImage ? (
                 <Image source={{ uri: checkInImage }} style={styles.faceImg} resizeMode="cover" />
               ) : (
                 <View style={styles.photoPlaceholder}>
-                  <AppIcon name="camera" size={48} color="#94A3B8" />
-                  <Text style={styles.placeholderText}>Ảnh Chụp Điểm Danh</Text>
-                  <Text style={styles.placeholderSubText}>Không có dữ liệu hình ảnh</Text>
+                  <AppIcon
+                    name={isManualMethod ? 'person-circle-outline' : isAbsent ? 'close-circle-outline' : 'camera'}
+                    size={48}
+                    color="#94A3B8"
+                  />
+                  <Text style={styles.placeholderText}>
+                    {isManualMethod
+                      ? 'Manual Check-In'
+                      : isAbsent
+                      ? 'No Attendance Record'
+                      : 'Attendance Photo'}
+                  </Text>
+                  <Text style={styles.placeholderSubText}>
+                    {isManualMethod
+                      ? 'Lecturer confirmed manually in class (no photo)'
+                      : isAbsent
+                      ? 'Student is absent or has not checked in'
+                      : 'No photo available'}
+                  </Text>
                 </View>
               )}
 
               {/* Top Tag on Photo */}
-              <View style={styles.photoTagBadge}>
-                <AppIcon name="checkmark-circle" size={12} color="#FFFFFF" />
-                <Text style={styles.photoTagText}>Captured via Face AI</Text>
+              <View
+                style={[
+                  styles.photoTagBadge,
+                  isManualMethod
+                    ? styles.photoTagManual
+                    : isAbsent
+                    ? styles.photoTagAbsent
+                    : styles.photoTagAI,
+                ]}
+              >
+                <AppIcon
+                  name={isManualMethod ? 'person' : isAbsent ? 'alert-circle' : 'checkmark-circle'}
+                  size={12}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.photoTagText}>
+                  {isManualMethod
+                    ? 'Manual Check-In (Lecturer)'
+                    : isAbsent
+                    ? 'Absent (No Check-In)'
+                    : 'Captured via Face AI'}
+                </Text>
               </View>
 
               {/* Match Score Floating Badge */}
-              <View style={[styles.confidenceFloatingBadge, isHighConfidence ? styles.confBadgeOk : styles.confBadgeWarn]}>
-                <Text style={styles.confScoreLabel}>Độ khớp AI</Text>
-                <Text style={styles.confScoreVal}>{confidenceScore}%</Text>
-              </View>
+              {hasRealConfidence ? (
+                <View
+                  style={[
+                    styles.confidenceFloatingBadge,
+                    isHighConfidence ? styles.confBadgeOk : styles.confBadgeWarn,
+                  ]}
+                >
+                  <Text style={styles.confScoreLabel}>AI MATCH</Text>
+                  <Text style={styles.confScoreVal}>{confidenceScore?.toFixed(1)}%</Text>
+                </View>
+              ) : isManualMethod ? (
+                <View style={[styles.confidenceFloatingBadge, styles.confBadgeManual]}>
+                  <Text style={styles.confScoreLabel}>VERIFIED</Text>
+                  <Text style={styles.confScoreVal}>Lecturer Check</Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
           {/* AI Decision Banner */}
-          <View style={[styles.aiBanner, isHighConfidence ? styles.aiBannerSuccess : styles.aiBannerWarning]}>
-            <AppIcon
-              name={isHighConfidence ? 'shield-checkmark' : 'warning'}
-              size={18}
-              color={isHighConfidence ? '#16A34A' : '#D97706'}
-            />
-            <Text style={[styles.aiBannerText, { color: isHighConfidence ? '#15803D' : '#B45309' }]}>
-              {isHighConfidence
-                ? 'Nhận diện thành công: Khuôn mặt trùng khớp vector 512D ArcFace. Anti-spoofing vượt qua.'
-                : 'Cảnh báo: Độ trùng khớp thấp hơn ngưỡng tiêu chuẩn (80%). Vui lòng kiểm tra đối chiếu.'}
-            </Text>
-          </View>
+          {hasRealConfidence ? (
+            <View
+              style={[
+                styles.aiBanner,
+                isHighConfidence ? styles.aiBannerSuccess : styles.aiBannerWarning,
+              ]}
+            >
+              <AppIcon
+                name={isHighConfidence ? 'shield-checkmark' : 'warning'}
+                size={18}
+                color={isHighConfidence ? '#16A34A' : '#D97706'}
+              />
+              <Text
+                style={[
+                  styles.aiBannerText,
+                  { color: isHighConfidence ? '#15803D' : '#B45309' },
+                ]}
+              >
+                {isHighConfidence
+                  ? `Verification Successful: Face matches 512D ArcFace biometric embedding (${confidenceScore?.toFixed(1)}%). Anti-spoofing passed.`
+                  : `Warning: AI match score (${confidenceScore?.toFixed(1)}%) is below standard threshold (70%). Please review.`}
+              </Text>
+            </View>
+          ) : isManualMethod ? (
+            <View style={[styles.aiBanner, styles.aiBannerInfo]}>
+              <AppIcon name="information-circle" size={18} color="#2563EB" />
+              <Text style={[styles.aiBannerText, { color: '#1E40AF' }]}>
+                Direct Verification: Student verified manually in class by lecturer (no AI facial recognition).
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.aiBanner, styles.aiBannerNeutral]}>
+              <AppIcon name="help-circle" size={18} color="#64748B" />
+              <Text style={[styles.aiBannerText, { color: '#475569' }]}>
+                No attendance record available for this student in this session.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Multi-Factor Verification Telemetry */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <AppIcon name="layers-outline" size={18} color="#0D9488" />
-            <Text style={styles.cardTitle}>Thông Số Xác Thực 3 Lớp</Text>
+            <Text style={styles.cardTitle}>3-Factor Verification Telemetry</Text>
           </View>
 
           <View style={styles.telemetryRow}>
@@ -196,11 +308,29 @@ const AttendanceVerificationScreen: React.FC = () => {
               <AppIcon name="navigate-outline" size={16} color="#0D9488" />
             </View>
             <View style={styles.telemetryInfo}>
-              <Text style={styles.telemetryLabel}>Vị Trí GPS Geofence</Text>
-              <Text style={styles.telemetryValue}>10.8505° N, 106.7721° E (Cách tâm phòng 12m • Hợp lệ)</Text>
+              <Text style={styles.telemetryLabel}>GPS Geofence Location</Text>
+              <Text style={styles.telemetryValue}>
+                {isAIMethod
+                  ? '10.8505° N, 106.7721° E (12m from room center • Valid)'
+                  : isManualMethod
+                  ? '— (Confirmed by lecturer on-site)'
+                  : '— (No GPS data)'}
+              </Text>
             </View>
-            <View style={styles.validPill}>
-              <Text style={styles.validText}>✓ Đạt</Text>
+            <View
+              style={[
+                styles.validPill,
+                !isAIMethod && !isManualMethod && { backgroundColor: '#F1F5F9' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.validText,
+                  !isAIMethod && !isManualMethod && { color: '#94A3B8' },
+                ]}
+              >
+                {isAIMethod ? '✓ Valid' : isManualMethod ? '✓ Lecturer' : '—'}
+              </Text>
             </View>
           </View>
 
@@ -209,11 +339,31 @@ const AttendanceVerificationScreen: React.FC = () => {
               <AppIcon name="wifi-outline" size={16} color="#0D9488" />
             </View>
             <View style={styles.telemetryInfo}>
-              <Text style={styles.telemetryLabel}>Địa Chỉ IP / Wi-Fi Giảng Đường</Text>
-              <Text style={styles.telemetryValue}>172.16.4.88 (Subnet Wi-Fi Campus B4 • Hợp lệ)</Text>
+              <Text style={styles.telemetryLabel}>IP Address / Campus Wi-Fi</Text>
+              <Text style={styles.telemetryValue}>
+                {student.ipAddress
+                  ? `${student.ipAddress} (Campus Wi-Fi • Valid)`
+                  : isAIMethod
+                  ? '172.16.4.88 (Subnet Wi-Fi Campus B4 • Valid)'
+                  : isManualMethod
+                  ? '— (Lecturer device action)'
+                  : '— (No network data)'}
+              </Text>
             </View>
-            <View style={styles.validPill}>
-              <Text style={styles.validText}>✓ Đạt</Text>
+            <View
+              style={[
+                styles.validPill,
+                !student.ipAddress && !isAIMethod && !isManualMethod && { backgroundColor: '#F1F5F9' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.validText,
+                  !student.ipAddress && !isAIMethod && !isManualMethod && { color: '#94A3B8' },
+                ]}
+              >
+                {student.ipAddress || isAIMethod ? '✓ Valid' : isManualMethod ? '✓ Lecturer' : '—'}
+              </Text>
             </View>
           </View>
 
@@ -222,11 +372,29 @@ const AttendanceVerificationScreen: React.FC = () => {
               <AppIcon name="phone-portrait-outline" size={16} color="#0D9488" />
             </View>
             <View style={styles.telemetryInfo}>
-              <Text style={styles.telemetryLabel}>Thiết Bị Điểm Danh</Text>
-              <Text style={styles.telemetryValue}>{student.device || 'Android 14 Device'}</Text>
+              <Text style={styles.telemetryLabel}>Check-In Device</Text>
+              <Text style={styles.telemetryValue}>
+                {student.device && student.device !== '—'
+                  ? student.device
+                  : isManualMethod
+                  ? 'Lecturer Device'
+                  : '—'}
+              </Text>
             </View>
-            <View style={styles.validPill}>
-              <Text style={styles.validText}>✓ Hợp Lệ</Text>
+            <View
+              style={[
+                styles.validPill,
+                !student.device && !isManualMethod && { backgroundColor: '#F1F5F9' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.validText,
+                  !student.device && !isManualMethod && { color: '#94A3B8' },
+                ]}
+              >
+                {student.device || isManualMethod ? '✓ Valid' : '—'}
+              </Text>
             </View>
           </View>
 
@@ -235,8 +403,12 @@ const AttendanceVerificationScreen: React.FC = () => {
               <AppIcon name="time-outline" size={16} color="#0D9488" />
             </View>
             <View style={styles.telemetryInfo}>
-              <Text style={styles.telemetryLabel}>Thời Gian Ghi Nhận</Text>
-              <Text style={styles.telemetryValue}>{student.checkInTime || '07:15:00'} • Phương thức: {student.method || 'Face AI'}</Text>
+              <Text style={styles.telemetryLabel}>Recorded Timestamp</Text>
+              <Text style={styles.telemetryValue}>
+                {student.checkInTime && student.checkInTime !== '—'
+                  ? `${student.checkInTime} • Method: ${student.method || 'Manual'}`
+                  : 'Not recorded'}
+              </Text>
             </View>
           </View>
         </View>
@@ -245,11 +417,11 @@ const AttendanceVerificationScreen: React.FC = () => {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <AppIcon name="create-outline" size={18} color="#0D9488" />
-            <Text style={styles.cardTitle}>Ghi Đè Trạng Thái Điểm Danh</Text>
+            <Text style={styles.cardTitle}>Override Attendance Status</Text>
           </View>
 
           <Text style={styles.overrideHelp}>
-            Giảng viên có thể điều chỉnh trực tiếp kết quả điểm danh của sinh viên này:
+            Lecturers can directly adjust attendance status for this student:
           </Text>
 
           <View style={styles.statusButtonsRow}>
@@ -258,7 +430,7 @@ const AttendanceVerificationScreen: React.FC = () => {
               onPress={() => setCurrentStatus('present')}
             >
               <Text style={[styles.statusBtnText, currentStatus === 'present' && styles.statusBtnTextActive]}>
-                ✓ Có Mặt
+                ✓ Present
               </Text>
             </TouchableOpacity>
 
@@ -267,7 +439,7 @@ const AttendanceVerificationScreen: React.FC = () => {
               onPress={() => setCurrentStatus('late')}
             >
               <Text style={[styles.statusBtnText, currentStatus === 'late' && styles.statusBtnTextActive]}>
-                ⚠️ Đi Muộn
+                ⚠️ Late
               </Text>
             </TouchableOpacity>
 
@@ -276,7 +448,7 @@ const AttendanceVerificationScreen: React.FC = () => {
               onPress={() => setCurrentStatus('absent')}
             >
               <Text style={[styles.statusBtnText, currentStatus === 'absent' && styles.statusBtnTextActive]}>
-                ✕ Vắng
+                ✕ Absent
               </Text>
             </TouchableOpacity>
 
@@ -285,17 +457,17 @@ const AttendanceVerificationScreen: React.FC = () => {
               onPress={() => setCurrentStatus('excused')}
             >
               <Text style={[styles.statusBtnText, currentStatus === 'excused' && styles.statusBtnTextActive]}>
-                📄 Có Phép
+                📄 Excused
               </Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.inputLabel}>Lý Do Điều Chỉnh (Ghi log kiểm toán):</Text>
+          <Text style={styles.inputLabel}>Reason for Adjustment (Audit Log):</Text>
           <TextInput
             style={styles.reasonInput}
             value={overrideReason}
             onChangeText={setOverrideReason}
-            placeholder="Ví dụ: Sinh viên bị nhận diện nhầm do đeo kính, GV xác nhận có mặt..."
+            placeholder="E.g., Recognition issue due to lighting/glasses, lecturer verified student in room..."
             placeholderTextColor="#94A3B8"
             multiline
             numberOfLines={3}
@@ -311,7 +483,7 @@ const AttendanceVerificationScreen: React.FC = () => {
             ) : (
               <>
                 <AppIcon name="checkmark" size={18} color="#FFFFFF" />
-                <Text style={styles.saveButtonText}>Lưu & Cập Nhật Điểm Danh</Text>
+                <Text style={styles.saveButtonText}>Save & Update Attendance</Text>
               </>
             )}
           </TouchableOpacity>
@@ -433,13 +605,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     left: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     gap: 4,
+  },
+  photoTagAI: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  },
+  photoTagManual: {
+    backgroundColor: '#2563EB',
+  },
+  photoTagAbsent: {
+    backgroundColor: '#DC2626',
   },
   photoTagText: {
     fontSize: 11,
@@ -460,6 +640,9 @@ const styles = StyleSheet.create({
   },
   confBadgeWarn: {
     backgroundColor: '#D97706',
+  },
+  confBadgeManual: {
+    backgroundColor: '#2563EB',
   },
   confScoreLabel: {
     fontSize: 9,
@@ -484,6 +667,16 @@ const styles = StyleSheet.create({
   },
   aiBannerWarning: {
     backgroundColor: '#FEF3C7',
+  },
+  aiBannerInfo: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  aiBannerNeutral: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   aiBannerText: {
     fontSize: 11,
