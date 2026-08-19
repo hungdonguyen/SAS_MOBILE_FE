@@ -37,8 +37,8 @@ const AdminUsersScreen: React.FC = () => {
     try {
       setLoading(true);
       const res = await userService.listUsers({
-        q: search !== undefined ? search : searchQuery,
-        role: (role !== undefined ? role : roleFilter) === 'all' ? undefined : (role || roleFilter) as any,
+        search: search !== undefined ? search.trim() || undefined : undefined,
+        role: (role === 'all' || !role) ? undefined : (role as any),
         limit: 50,
       });
       setUsers(res.data);
@@ -49,23 +49,19 @@ const AdminUsersScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [searchQuery, roleFilter]);
+  }, []);
 
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers, roleFilter]);
-
-  // Debounced search
+  // Debounced search & filter
   useEffect(() => {
     const timer = setTimeout(() => {
-      loadUsers(searchQuery);
-    }, 400);
+      loadUsers(searchQuery, roleFilter);
+    }, 350);
     return () => clearTimeout(timer);
-  }, [loadUsers, searchQuery]);
+  }, [loadUsers, searchQuery, roleFilter]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadUsers();
+    loadUsers(searchQuery, roleFilter);
   };
 
   const handleUserCardPress = async (user: UserResponse) => {
@@ -110,7 +106,7 @@ const AdminUsersScreen: React.FC = () => {
         Alert.alert('Success', `User ${created.fullName} has been created.`);
       }
 
-      loadUsers();
+      loadUsers(searchQuery, roleFilter);
     } catch (error) {
       Alert.alert('Creation Failed', (error as any).message || 'Could not create user.');
     } finally {

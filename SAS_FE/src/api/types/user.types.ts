@@ -63,6 +63,7 @@ export interface UserQuery {
   limit?: number;
   role?: 'student' | 'lecturer' | 'admin' | '';
   isActive?: boolean;
+  search?: string;
   q?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';

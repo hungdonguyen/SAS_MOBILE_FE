@@ -36,7 +36,7 @@ const AdminRoomsScreen: React.FC = () => {
     try {
       setLoading(true);
       const res = await roomService.listRooms({
-        q: queryStr !== undefined ? queryStr : searchQuery,
+        search: queryStr !== undefined ? queryStr.trim() || undefined : undefined,
         limit: 50,
       });
       setRooms(res.data);
@@ -47,23 +47,19 @@ const AdminRoomsScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [searchQuery]);
-
-  useEffect(() => {
-    loadRooms();
-  }, [loadRooms]);
+  }, []);
 
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
       loadRooms(searchQuery);
-    }, 400);
+    }, 350);
     return () => clearTimeout(timer);
   }, [loadRooms, searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadRooms();
+    loadRooms(searchQuery);
   };
 
   const handleCreateRoom = async () => {
@@ -92,7 +88,7 @@ const AdminRoomsScreen: React.FC = () => {
       setShowAddModal(false);
       setNewRoomCode('');
       Alert.alert('Success', `Room ${newRoomCode} registered successfully.`);
-      loadRooms();
+      loadRooms(searchQuery);
     } catch (error) {
       Alert.alert('Creation Error', (error as any).message || 'Failed to create room.');
     } finally {

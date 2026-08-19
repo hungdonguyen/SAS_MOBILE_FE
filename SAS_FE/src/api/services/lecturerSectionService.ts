@@ -52,11 +52,18 @@ export const lecturerSectionService = {
    */
   async getSectionSessions(
     id: string,
-    query?: { page?: number; limit?: number; status?: string },
+    query?: { page?: number; limit?: number; status?: string; startDate?: string; endDate?: string },
   ): Promise<PaginatedClassSessionResponseDto> {
+    const params: Record<string, any> = {};
+    if (query?.page) params.page = query.page;
+    if (query?.limit) params.limit = query.limit;
+    if (query?.status) params.status = query.status;
+    if (query?.startDate) params.startDate = query.startDate;
+    if (query?.endDate) params.endDate = query.endDate;
+
     const response = await apiClient.get<PaginatedClassSessionResponseDto>(
       API_ENDPOINTS.CLASS_SECTIONS.SESSIONS(id),
-      { params: query },
+      { params },
     );
     return response.data;
   },
@@ -67,11 +74,17 @@ export const lecturerSectionService = {
    */
   async getSectionStudents(
     id: string,
-    query?: { page?: number; limit?: number; q?: string },
+    query?: { page?: number; limit?: number; search?: string; q?: string },
   ): Promise<PaginatedEnrolledStudentResponseDto> {
+    const params: Record<string, any> = {};
+    if (query?.page) params.page = query.page;
+    if (query?.limit) params.limit = query.limit;
+    const searchTerm = query?.search?.trim() || query?.q?.trim();
+    if (searchTerm) params.search = searchTerm;
+
     const response = await apiClient.get<PaginatedEnrolledStudentResponseDto>(
       API_ENDPOINTS.CLASS_SECTIONS.STUDENTS(id),
-      { params: query },
+      { params },
     );
     return response.data;
   },

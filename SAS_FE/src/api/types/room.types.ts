@@ -34,6 +34,7 @@ export interface UpdateRoomRequest {
 export interface RoomQuery {
   page?: number;
   limit?: number;
+  search?: string;
   q?: string;
   isActive?: boolean;
   sortBy?: string;

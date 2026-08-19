@@ -14,11 +14,16 @@ export const lecturerAttendanceService = {
    */
   async getSessionAttendance(
     sessionId: string,
-    query?: { status?: string; q?: string; page?: number; limit?: number },
+    query?: { status?: string; search?: string; q?: string },
   ): Promise<SessionAttendanceDetailResponseDto> {
+    const params: Record<string, any> = {};
+    if (query?.status) params.status = query.status;
+    const searchTerm = query?.search?.trim() || query?.q?.trim();
+    if (searchTerm) params.search = searchTerm;
+
     const response = await apiClient.get<SessionAttendanceDetailResponseDto>(
       API_ENDPOINTS.ATTENDANCE.SESSION_DETAIL(sessionId),
-      { params: query },
+      { params },
     );
     return response.data;
   },

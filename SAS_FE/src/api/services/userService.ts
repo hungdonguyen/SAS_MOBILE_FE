@@ -22,7 +22,8 @@ export const userService = {
     if (query?.limit) params.limit = query.limit;
     if (query?.role) params.role = query.role;
     if (query?.isActive !== undefined) params.isActive = query.isActive;
-    if (query?.q?.trim()) params.q = query.q.trim();
+    const searchTerm = query?.search?.trim() || query?.q?.trim();
+    if (searchTerm) params.search = searchTerm;
     if (query?.sortBy) params.sortBy = query.sortBy;
     if (query?.sortOrder) params.sortOrder = query.sortOrder;
 

@@ -32,11 +32,11 @@ const processQueue = (error: AxiosError | null) => {
 };
 
 // ─── Axios client factory ────────────────────────────────────────────────────
-const createClient = (): AxiosInstance => {
+const createClient = (customTimeout = 30000): AxiosInstance => {
   const instance = axios.create({
     // No baseURL here — set dynamically per request so IP changes apply immediately
     withCredentials: true,
-    timeout: 15000,
+    timeout: customTimeout,
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
@@ -97,13 +97,17 @@ const createClient = (): AxiosInstance => {
         const refreshRes = await refreshClient.post('/auth/refresh');
 
         // Extract new access_token from Set-Cookie header
-        const setCookie = refreshRes.headers['set-cookie'];
+        const setCookie = refreshRes.headers['set-cookie'] || refreshRes.headers['Set-Cookie'];
         if (setCookie) {
           const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie);
-          const match = cookieStr.match(/access_token=([^;]+)/);
+          const match = cookieStr.match(/access_token=([^;]+)/i);
           if (match?.[1]) {
             authStorage.setAccessToken(match[1]);
           }
+        }
+
+        if (refreshRes.data?.access_token) {
+          authStorage.setAccessToken(refreshRes.data.access_token);
         }
 
         processQueue(null);
@@ -147,13 +151,19 @@ export const studentApi = {
     // Save token if returned in body
     if (data?.token) {
       authStorage.setAccessToken(data.token);
+    } else if ((data as any)?.access_token) {
+      authStorage.setAccessToken((data as any).access_token);
     } else {
       // Fallback: Extract access_token from Set-Cookie headers if present
       try {
-        const setCookie = response.headers['set-cookie'];
+        const headers: any = response.headers;
+        const setCookie =
+          headers?.['set-cookie'] ||
+          headers?.['Set-Cookie'] ||
+          (typeof headers?.get === 'function' ? headers.get('set-cookie') : null);
         if (setCookie) {
           const cookieStr = Array.isArray(setCookie) ? setCookie.join('; ') : String(setCookie);
-          const match = cookieStr.match(/access_token=([^;]+)/);
+          const match = cookieStr.match(/access_token=([^;]+)/i);
           if (match?.[1]) {
             authStorage.setAccessToken(match[1]);
           }
@@ -224,18 +234,44 @@ export const studentApi = {
    * POST /biometrics/register (multipart/form-data)
    */
   registerFace: async (formData: FormData): Promise<{ success: boolean; message: string }> => {
-    const client = createClient();
-    const response = await client.post<{ success: boolean; message: string }>(
-      '/biometrics/register',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
+    const executeUpload = async () => {
+      const client = createClient(60000); // 60s timeout for heavy AI face verification & encryption
+      const response = await client.post<{ success: boolean; message: string }>(
+        '/biometrics/register',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          transformRequest: (data) => data,
         },
-      },
-    );
-    authStorage.setHasRegisteredFace(true);
-    return response.data;
+      );
+      return response.data;
+    };
+
+    try {
+      const resData = await executeUpload();
+      authStorage.setHasRegisteredFace(true);
+      return resData;
+    } catch (firstErr: any) {
+      // Auto-retry once on transient network/timeout (e.g. AI model cold-start warmup) error
+      const isTransient =
+        firstErr.code === 'ECONNABORTED' ||
+        firstErr.code === 'ERR_NETWORK' ||
+        firstErr.message?.includes('Network Error') ||
+        firstErr.message?.includes('timeout') ||
+        firstErr.response?.status === 503 ||
+        firstErr.response?.status === 504;
+
+      if (isTransient) {
+        console.log('[studentApi] registerFace transient error on initial attempt, retrying once...', firstErr.message);
+        await new Promise<void>((resolve) => setTimeout(resolve, 800));
+        const resData = await executeUpload();
+        authStorage.setHasRegisteredFace(true);
+        return resData;
+      }
+      throw firstErr;
+    }
   },
 
   /**

@@ -24,7 +24,7 @@ const AdminClassesScreen: React.FC = () => {
     try {
       setLoading(true);
       const res = await classSectionService.listSections({
-        q: queryStr !== undefined ? queryStr : searchQuery,
+        search: queryStr !== undefined ? queryStr.trim() || undefined : undefined,
         limit: 50,
       });
       setSections(res.data);
@@ -35,23 +35,19 @@ const AdminClassesScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [searchQuery]);
-
-  useEffect(() => {
-    loadSections();
-  }, [loadSections]);
+  }, []);
 
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
       loadSections(searchQuery);
-    }, 400);
+    }, 350);
     return () => clearTimeout(timer);
   }, [loadSections, searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadSections();
+    loadSections(searchQuery);
   };
 
   const handleAddClass = () => {

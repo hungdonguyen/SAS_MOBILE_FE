@@ -166,13 +166,16 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
 
         let photoPath = '';
         try {
+          // 1. Prefer takeSnapshot for fast, optimal resolution capture (typically 300KB-800KB)
+          // to dramatically speed up network upload and AI processing
+          const snapshot = await cameraRef.current.takeSnapshot({ quality: 90 });
+          photoPath = snapshot.path;
+        } catch {
+          // 2. Fallback to takePhoto if takeSnapshot is unavailable
           const photo = await cameraRef.current.takePhoto({
             enableShutterSound: false,
           });
           photoPath = photo.path;
-        } catch {
-          const snapshot = await cameraRef.current.takeSnapshot({ quality: 85 });
-          photoPath = snapshot.path;
         }
 
         const fileUri = Platform.OS === 'android' ? `file://${photoPath}` : photoPath;
@@ -435,13 +438,6 @@ const FaceCamera = forwardRef<FaceCameraHandle, FaceCameraProps>(
               </Text>
             </View>
           )}
-
-          {/* Countdown circle inside oval */}
-          {countdown !== null && countdown > 0 && !captured && !isProcessing && (
-            <View style={styles.countdownBubbleInOval}>
-              <Text style={styles.countdownBubbleText}>{countdown}</Text>
-            </View>
-          )}
         </Animated.View>
 
         {/* Countdown badge below oval */}
@@ -545,19 +541,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 12,
   },
-  countdownBubbleInOval: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(59,130,246,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 15,
-  },
-  countdownBubbleText: { color: '#FFFFFF', fontSize: 26, fontWeight: '900' },
   countdownRow: { height: 60, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
   countdownBadge: {
     width: 52,
